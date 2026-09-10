@@ -85,6 +85,20 @@ struct StreamingTransportTests {
         #expect(fixture.recorded.count == 2)
     }
 
+    @Test func retriesAfterARateLimitedConnection() async throws {
+        let (fixture, transport) = makeTransport()
+        defer { transport.close() }
+        fixture.enqueue(
+            .init(statusCode: 429),
+            .init(chunks: [event(configSetJSON(greeting: "hello"))], endsStream: false)
+        )
+
+        try await transport.connect(context: ConfigDirectorContext(), timeout: 2)
+
+        #expect(await fixture.waitForConfigSets(1))
+        #expect(fixture.recorded.count == 2)
+    }
+
     @Test func returnsWithoutThrowingWhenTheConnectionNeverOpensInTime() async throws {
         let (fixture, transport) = makeTransport(retryDelay: { _ in 5 })
         defer { transport.close() }

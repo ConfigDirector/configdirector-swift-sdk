@@ -67,7 +67,7 @@ struct TransportOptionsTests {
         #expect(samples.count > 1, "every client would reconnect at the same instant")
     }
 
-    @Test(arguments: [(200, false), (399, false), (400, true), (499, true), (500, false)])
+    @Test(arguments: [(200, false), (399, false), (400, true), (429, false), (499, true), (500, false)])
     func treatsOnlyClientErrorsAsUnrecoverable(status: Int, isFatal: Bool) {
         #expect(status.isFatalHTTPStatus == isFatal)
     }

@@ -131,6 +131,17 @@ struct PollingTransportTests {
         #expect(fixture.received.first?.configs["greeting"]?.value == "hello")
     }
 
+    @Test func keepsPollingAfterARateLimitedRequest() async throws {
+        let (fixture, transport) = makeTransport(pollingInterval: 0.05)
+        defer { transport.close() }
+        fixture.enqueue(.json("too many requests", statusCode: 429), .json(configSetJSON(greeting: "hello")))
+
+        try await transport.connect(context: ConfigDirectorContext(), timeout: 1)
+
+        #expect(await fixture.waitForConfigSets(1))
+        #expect(fixture.received.first?.configs["greeting"]?.value == "hello")
+    }
+
     @Test func deliversNothingAndKeepsPollingWhenTheResponseIsNotAConfigSet() async throws {
         let (fixture, transport) = makeTransport(pollingInterval: 0.05)
         defer { transport.close() }

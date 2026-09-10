@@ -116,6 +116,7 @@ struct EventReporterTests {
     @Test(arguments: [
         (500, ReportOutcome.failed),
         (503, .failed),
+        (429, .failed),
         (401, .failedFatally),
         (404, .failedFatally)
     ])
