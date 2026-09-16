@@ -1,6 +1,39 @@
 # ConfigDirector Swift SDK
 
-This is the Swift client SDK for [ConfigDirector](https://www.configdirector.com).
+[![CI][ci-badge]][ci] [![Release][release-badge]][release]
+
+Swift SDK for [ConfigDirector](https://www.configdirector.com), remote config and feature flags with typed values, JSON Schema validation, and safe renames of live flags. Start free, no card required.
+
+It supports iOS, iPadOS, macOS, tvOS, and watchOS.
+
+## Install
+
+In Xcode, go to **File → Add Package Dependencies…** and enter the package URL `https://github.com/ConfigDirector/swift-sdk`. In a Swift package, declare it in `Package.swift`:
+
+```swift
+dependencies: [
+    .package(url: "https://github.com/ConfigDirector/swift-sdk", from: "1.2.0"),
+],
+targets: [
+    .target(
+        name: "YourTarget",
+        dependencies: [.product(name: "ConfigDirector", package: "swift-sdk")]
+    ),
+]
+```
+
+## Retrieve a value
+
+```swift
+import ConfigDirector
+
+let client = try ConfigDirectorClient(clientSDKKey: "YOUR-CLIENT-SDK-KEY")
+await client.initialize()
+
+let darkMode = client.value(for: "dark-mode", default: false)
+```
+
+Full details are in the [official documentation](https://docs.configdirector.com/sdks/mobile/swift).
 
 ## Documentation
 
@@ -26,4 +59,11 @@ See [`Samples/README.md`](Samples/README.md) to point them at your own ConfigDir
 
 ## Getting Help
 
-Reach out to us via https://www.configdirector.com/support
+- [Ask a question in Discussions](https://github.com/orgs/ConfigDirector/discussions)
+- [Contact support](https://www.configdirector.com/support)
+
+[//]: # "links"
+[ci-badge]: https://github.com/ConfigDirector/swift-sdk/actions/workflows/ci.yml/badge.svg
+[ci]: https://github.com/ConfigDirector/swift-sdk/actions/workflows/ci.yml
+[release-badge]: https://img.shields.io/github/v/release/ConfigDirector/swift-sdk
+[release]: https://github.com/ConfigDirector/swift-sdk/releases
