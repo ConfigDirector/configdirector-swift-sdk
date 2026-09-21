@@ -13,11 +13,12 @@ enum AppInfo {
     /// running application's bundle reports.
     static func metaContext(
         metadata: ConfigDirectorMetaContext?,
+        identity: SDKIdentity,
         bundle: Bundle = .main
     ) -> SDKMetaContext {
         SDKMetaContext(
-            sdkName: Constants.sdkName,
-            sdkVersion: Constants.sdkVersion,
+            sdkName: identity.name,
+            sdkVersion: identity.version,
             appName: metadata?.appName
                 ?? bundle.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String
                 ?? bundle.object(forInfoDictionaryKey: "CFBundleName") as? String,

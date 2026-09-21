@@ -43,9 +43,21 @@ public final class ConfigDirectorClient: Sendable {
         clientSDKKey: String,
         options: ConfigDirectorClientOptions = ConfigDirectorClientOptions()
     ) throws(ConfigDirectorError) {
+        try self.init(clientSDKKey: clientSDKKey, options: options, identity: .swiftClientSDK)
+    }
+
+    /// Creates a client that reports `identity` to the server instead of this SDK's own name and
+    /// version. Otherwise identical to ``init(clientSDKKey:options:)``.
+    @_spi(ConfigDirectorWrapper)
+    public convenience init(
+        clientSDKKey: String,
+        options: ConfigDirectorClientOptions = ConfigDirectorClientOptions(),
+        identity: SDKIdentity
+    ) throws(ConfigDirectorError) {
         try self.init(
             clientSDKKey: clientSDKKey,
             options: options,
+            identity: identity,
             session: URLSession(configuration: .default),
             lifecycle: NotificationCenterLifecycleObserver(),
             telemetryOptions: TelemetryOptions()
@@ -55,6 +67,7 @@ public final class ConfigDirectorClient: Sendable {
     init(
         clientSDKKey: String,
         options: ConfigDirectorClientOptions,
+        identity: SDKIdentity,
         session: URLSession,
         lifecycle: any AppLifecycleObserver,
         telemetryOptions: TelemetryOptions
@@ -76,8 +89,8 @@ public final class ConfigDirectorClient: Sendable {
                 clientSDKKey: clientSDKKey,
                 baseURL: baseURL,
                 metaContext: TelemetryMetaContext(
-                    sdkName: Constants.sdkName,
-                    sdkVersion: Constants.sdkVersion
+                    sdkName: identity.name,
+                    sdkVersion: identity.version
                 ),
                 logger: options.logger,
                 session: session
@@ -96,7 +109,7 @@ public final class ConfigDirectorClient: Sendable {
             options: TransportOptions(
                 clientSDKKey: clientSDKKey,
                 baseURL: baseURL,
-                metaContext: AppInfo.metaContext(metadata: options.metadata),
+                metaContext: AppInfo.metaContext(metadata: options.metadata, identity: identity),
                 instanceID: UUID().uuidString,
                 logger: options.logger,
                 pollingInterval: options.connection.pollingInterval,

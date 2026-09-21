@@ -8,6 +8,15 @@ version can be tagged. See [Releasing](CONTRIBUTING.md#releasing).
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-09-21
+
+### Added
+
+- ConfigDirector's own wrappers, starting with the OpenFeature provider, can report their name and
+  version to the server in place of this SDK's. This is not part of the public API: it is only
+  reachable through `@_spi(ConfigDirectorWrapper) import ConfigDirector`, and applications cannot
+  supply a name of their own.
+
 ## [1.3.0] - 2026-09-18
 
 ### Fixed

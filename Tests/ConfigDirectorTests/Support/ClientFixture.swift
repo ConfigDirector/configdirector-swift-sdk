@@ -1,4 +1,4 @@
-@testable import ConfigDirector
+@_spi(ConfigDirectorWrapper) @testable import ConfigDirector
 import Foundation
 
 /// One client under test against a stubbed ConfigDirector server on a base URL of its own, so the
@@ -38,7 +38,8 @@ final class ClientFixture: Sendable {
         pausesWhileBackgrounded: Bool = true,
         lifecycle: (any AppLifecycleObserver)? = nil,
         telemetryFlushInterval: TimeInterval = 0.05,
-        logger: any ConfigDirectorLogger = ConsoleLogger(level: .off)
+        logger: any ConfigDirectorLogger = ConsoleLogger(level: .off),
+        identity: SDKIdentity = .swiftClientSDK
     ) throws -> ConfigDirectorClient {
         try ConfigDirectorClient(
             clientSDKKey: "sdk-key",
@@ -52,6 +53,7 @@ final class ClientFixture: Sendable {
                 ),
                 logger: logger
             ),
+            identity: identity,
             session: session,
             lifecycle: lifecycle ?? NotificationCenterLifecycleObserver(
                 center: notifications,
