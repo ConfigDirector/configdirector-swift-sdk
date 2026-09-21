@@ -136,7 +136,7 @@ is quietly wrong. DocC records it only in a diagnostics file, so
 file and is what actually fails the build. Run the pair by hand with:
 
 ```bash
-xcodebuild docbuild -scheme swift-client-sdk \
+xcodebuild docbuild -scheme configdirector-swift-sdk \
   -destination 'generic/platform=macOS' -derivedDataPath .docs-build -quiet
 .github/scripts/check-docs-diagnostics.sh .docs-build
 ```
@@ -150,7 +150,7 @@ xcodebuild docbuild -scheme swift-client-sdk \
 
 ### Building them against this checkout
 
-The project depends on the *published* package — `https://github.com/ConfigDirector/swift-sdk.git`
+The project depends on the *published* package — `https://github.com/ConfigDirector/configdirector-swift-sdk.git`
 from `1.0.0` — because that is what someone adding the SDK to their own app writes, and a sample
 that reads differently from the documented setup is a sample that teaches the wrong thing. Opening
 the project on its own therefore builds the released SDK, not your working tree.
@@ -161,6 +161,14 @@ local package in a workspace takes precedence over a remote dependency with the 
 the same targets, unmodified, compile against `Sources/` instead of a tag. Nothing is fetched. That
 is the workspace CI and the pre-push hook build, which is what keeps a breaking API change failing
 here rather than reaching someone's app.
+
+The override depends on the name of the folder this repository is checked out into. Swift Package
+Manager identifies a local package by its folder name and a remote one by the last component of its
+URL, so the two only count as the same package when the folder is called
+`configdirector-swift-sdk`, which is what `git clone` and CI's checkout produce. In a folder with
+another name package resolution fails with "unable to override package 'configdirector-swift-sdk'
+because its identity 'configdirector-swift-sdk' doesn't match override's identity (directory
+name)".
 
 Work on the SDK through the workspace; open the bare project only to check what a consumer gets.
 

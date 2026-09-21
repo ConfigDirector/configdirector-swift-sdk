@@ -102,7 +102,7 @@ jobs:
 
       - run: |
           xcodebuild docbuild \
-            -scheme swift-client-sdk \
+            -scheme configdirector-swift-sdk \
             -destination 'generic/platform=macOS' \
             -derivedDataPath .docs-build \
             -quiet

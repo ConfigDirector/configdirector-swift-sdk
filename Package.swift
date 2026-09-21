@@ -3,7 +3,7 @@
 import PackageDescription
 
 let package = Package(
-    name: "swift-client-sdk",
+    name: "configdirector-swift-sdk",
     platforms: [
         .iOS(.v15),
         .macOS(.v12),

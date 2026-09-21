@@ -35,7 +35,7 @@ The project adds ConfigDirector the way your own app would — as a released Swi
 from a version rather than from a path:
 
 ```
-https://github.com/ConfigDirector/swift-sdk.git
+https://github.com/ConfigDirector/configdirector-swift-sdk.git
 ```
 
 In Xcode that is **File → Add Package Dependencies…**, pasting that URL and taking the default
@@ -43,12 +43,12 @@ In Xcode that is **File → Add Package Dependencies…**, pasting that URL and 
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/ConfigDirector/swift-sdk.git", from: "1.0.0"),
+    .package(url: "https://github.com/ConfigDirector/configdirector-swift-sdk.git", from: "1.0.0"),
 ],
 targets: [
     .target(
         name: "YourApp",
-        dependencies: [.product(name: "ConfigDirector", package: "swift-sdk")]
+        dependencies: [.product(name: "ConfigDirector", package: "configdirector-swift-sdk")]
     ),
 ]
 ```

@@ -101,7 +101,7 @@ run "build (watchOS)" build_for_platform watchos arm64_32-apple-watchos8.0
 build_docs() {
     rm -rf .docs-build
     xcodebuild docbuild \
-        -scheme swift-client-sdk \
+        -scheme configdirector-swift-sdk \
         -destination 'generic/platform=macOS' \
         -derivedDataPath .docs-build \
         -quiet \

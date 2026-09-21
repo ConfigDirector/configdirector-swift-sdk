@@ -8,16 +8,16 @@ It supports iOS, iPadOS, macOS, tvOS, and watchOS.
 
 ## Install
 
-In Xcode, go to **File → Add Package Dependencies…** and enter the package URL `https://github.com/ConfigDirector/swift-sdk`. In a Swift package, declare it in `Package.swift`:
+In Xcode, go to **File → Add Package Dependencies…** and enter the package URL `https://github.com/ConfigDirector/configdirector-swift-sdk`. In a Swift package, declare it in `Package.swift`:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/ConfigDirector/swift-sdk", from: "1.2.0"),
+    .package(url: "https://github.com/ConfigDirector/configdirector-swift-sdk", from: "1.2.0"),
 ],
 targets: [
     .target(
         name: "YourTarget",
-        dependencies: [.product(name: "ConfigDirector", package: "swift-sdk")]
+        dependencies: [.product(name: "ConfigDirector", package: "configdirector-swift-sdk")]
     ),
 ]
 ```
@@ -63,7 +63,7 @@ See [`Samples/README.md`](Samples/README.md) to point them at your own ConfigDir
 - [Contact support](https://www.configdirector.com/support)
 
 [//]: # "links"
-[ci-badge]: https://github.com/ConfigDirector/swift-sdk/actions/workflows/ci.yml/badge.svg
-[ci]: https://github.com/ConfigDirector/swift-sdk/actions/workflows/ci.yml
-[release-badge]: https://img.shields.io/github/v/release/ConfigDirector/swift-sdk
-[release]: https://github.com/ConfigDirector/swift-sdk/releases
+[ci-badge]: https://github.com/ConfigDirector/configdirector-swift-sdk/actions/workflows/ci.yml/badge.svg
+[ci]: https://github.com/ConfigDirector/configdirector-swift-sdk/actions/workflows/ci.yml
+[release-badge]: https://img.shields.io/github/v/release/ConfigDirector/configdirector-swift-sdk
+[release]: https://github.com/ConfigDirector/configdirector-swift-sdk/releases
