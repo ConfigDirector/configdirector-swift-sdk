@@ -43,7 +43,7 @@ In Xcode that is **File → Add Package Dependencies…**, pasting that URL and 
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/ConfigDirector/configdirector-swift-sdk.git", from: "1.0.0"),
+    .package(url: "https://github.com/ConfigDirector/configdirector-swift-sdk.git", from: "1.5.0"),
 ],
 targets: [
     .target(
