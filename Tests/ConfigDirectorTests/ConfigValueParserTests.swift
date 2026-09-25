@@ -23,13 +23,25 @@ enum ConfigValueParserTests {
             #expect(result.reason == .typeMismatch)
         }
 
-        /// Every config value is a string on the wire, including a JSON config's raw document.
-        @Test(arguments: ConfigType.allCases)
-        func aStringIsReadFromEveryConfigType(_ type: ConfigType) {
+        /// A JSON config reads as its raw document.
+        @Test(arguments: [ConfigType.string, .enumeration, .url, .custom, .json])
+        func aStringIsReadFrom(_ type: ConfigType) {
             let result = ConfigValueParser.parse(.make(key: "k", type: type, value: "42"), default: "")
 
             #expect(result.value == "42")
             #expect(result.reason == .foundMatch)
+        }
+
+        @Test(arguments: [ConfigType.boolean, .integer, .float])
+        func aStringIsNotReadFrom(_ type: ConfigType) {
+            let result = ConfigValueParser.parse(
+                .make(key: "k", type: type, value: "42"),
+                default: "fallback"
+            )
+
+            #expect(result.value == "fallback")
+            #expect(result.usedDefault)
+            #expect(result.reason == .typeMismatch)
         }
 
         @Test(arguments: [ConfigType.integer, .float, .enumeration, .string, .custom])

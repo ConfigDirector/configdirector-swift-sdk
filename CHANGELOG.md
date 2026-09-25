@@ -8,6 +8,15 @@ version can be tagged. See [Releasing](CONTRIBUTING.md#releasing).
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-09-25
+
+### Changed
+
+- A boolean, integer, or float config read as a `String` now evaluates to the default value with
+  the `.typeMismatch` reason, instead of the value's text with `.foundMatch`. `ConfigValueKind.string`
+  reads from string, enum, URL, custom, and JSON configs; a JSON config still reads as its raw
+  document.
+
 ## [1.4.0] - 2026-09-21
 
 ### Added

@@ -38,10 +38,10 @@ public struct ConfigValueKind: Sendable, Equatable {
         unreadableValueReason: .invalidBoolean
     )
 
-    /// Read from every config: each value is a string on the wire, including a JSON config's raw
-    /// document.
+    /// Read from string, enum, URL, and custom configs, and from JSON configs as their raw
+    /// document. A boolean, integer, or float config evaluates to the default value instead.
     public static let string = ConfigValueKind(
-        sourceTypes: Set(ConfigType.allCases),
+        sourceTypes: [.string, .enumeration, .url, .custom, .json],
         unreadableValueReason: .typeMismatch
     )
 
