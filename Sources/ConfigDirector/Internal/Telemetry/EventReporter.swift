@@ -1,10 +1,5 @@
 import Foundation
 
-struct TelemetryMetaContext: Sendable, Encodable {
-    var sdkName: String
-    var sdkVersion: String
-}
-
 struct EventReport: Sendable {
     var snapshot: EventQueueSnapshot<EvaluatedConfigEvent>
     var context: ConfigDirectorContext?
@@ -35,7 +30,7 @@ final class HTTPEventReporter: EventReporter {
 
     private let clientSDKKey: String
     private let url: URL
-    private let metaContext: TelemetryMetaContext
+    private let metaContext: SDKMetaContext
     private let logger: any ConfigDirectorLogger
     private let session: URLSession
     private let timeout: TimeInterval
@@ -44,7 +39,7 @@ final class HTTPEventReporter: EventReporter {
     init(
         clientSDKKey: String,
         baseURL: URL,
-        metaContext: TelemetryMetaContext,
+        metaContext: SDKMetaContext,
         logger: any ConfigDirectorLogger,
         session: URLSession,
         timeout: TimeInterval = 5
@@ -136,7 +131,7 @@ private struct TelemetryPayload: Encodable {
     }
 
     var clientSDKKey: String
-    var metaContext: TelemetryMetaContext
+    var metaContext: SDKMetaContext
     var context: ConfigDirectorContext?
     var discreteEvents: [String: String] = [:]
     var aggregatedEvents: AggregatedEvents

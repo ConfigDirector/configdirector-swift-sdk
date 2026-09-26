@@ -88,10 +88,7 @@ public final class ConfigDirectorClient: Sendable {
             reporter: HTTPEventReporter(
                 clientSDKKey: clientSDKKey,
                 baseURL: baseURL,
-                metaContext: TelemetryMetaContext(
-                    sdkName: identity.name,
-                    sdkVersion: identity.version
-                ),
+                metaContext: AppInfo.metaContext(metadata: options.metadata, identity: identity),
                 logger: options.logger,
                 session: session
             ),

@@ -8,6 +8,12 @@ version can be tagged. See [Releasing](CONTRIBUTING.md#releasing).
 
 ## [Unreleased]
 
+## [1.5.1] - 2026-09-26
+
+### Fixed
+
+- Include app name and version in the telemetry report, so they can be presented in activity graphs.
+
 ## [1.5.0] - 2026-09-25
 
 ### Changed

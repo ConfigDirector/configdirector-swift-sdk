@@ -23,7 +23,7 @@ struct EventReporterTests {
             reporter: HTTPEventReporter(
                 clientSDKKey: "sdk-key",
                 baseURL: baseURL,
-                metaContext: TelemetryMetaContext(sdkName: "swift-client-sdk", sdkVersion: "0.1.0"),
+                metaContext: SDKMetaContext(sdkName: "swift-client-sdk", sdkVersion: "0.1.0"),
                 logger: ConsoleLogger(level: .off),
                 session: StubURLProtocol.makeSession()
             ),
@@ -38,7 +38,7 @@ struct EventReporterTests {
         let reporter = try HTTPEventReporter(
             clientSDKKey: "sdk-key",
             baseURL: #require(URL(string: root)),
-            metaContext: TelemetryMetaContext(sdkName: "swift-client-sdk", sdkVersion: "0.1.0"),
+            metaContext: SDKMetaContext(sdkName: "swift-client-sdk", sdkVersion: "0.1.0"),
             logger: ConsoleLogger(level: .off),
             session: StubURLProtocol.makeSession()
         )

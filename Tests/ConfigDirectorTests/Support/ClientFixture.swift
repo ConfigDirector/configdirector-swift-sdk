@@ -44,6 +44,7 @@ final class ClientFixture: Sendable {
         try ConfigDirectorClient(
             clientSDKKey: "sdk-key",
             options: ConfigDirectorClientOptions(
+                metadata: ConfigDirectorMetaContext(appName: "test-app", appVersion: "2.3.4"),
                 connection: ConnectionOptions(
                     mode: mode,
                     pollingInterval: pollingInterval,
@@ -223,6 +224,8 @@ struct TelemetryReport: Decodable, Sendable {
     struct Meta: Decodable, Sendable {
         var sdkName: String
         var sdkVersion: String
+        var appName: String?
+        var appVersion: String?
     }
 
     var clientSdkKey: String

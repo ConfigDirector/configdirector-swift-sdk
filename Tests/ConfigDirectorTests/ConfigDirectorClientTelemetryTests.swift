@@ -35,6 +35,8 @@ struct ConfigDirectorClientTelemetryTests {
         let report = try #require(fixture.telemetryReports().first)
         #expect(report.clientSdkKey == "sdk-key")
         #expect(report.metaContext.sdkName == "swift-client-sdk")
+        #expect(report.metaContext.appName == "test-app")
+        #expect(report.metaContext.appVersion == "2.3.4")
         #expect(report.context?.id == "user-123")
         #expect(report.droppedEvents.evaluatedConfig == 0)
 
