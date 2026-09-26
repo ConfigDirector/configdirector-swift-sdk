@@ -39,11 +39,11 @@ https://github.com/ConfigDirector/configdirector-swift-sdk.git
 ```
 
 In Xcode that is **File → Add Package Dependencies…**, pasting that URL and taking the default
-*Up to Next Major Version*. In a `Package.swift` it is:
+_Up to Next Major Version_. In a `Package.swift` it is:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/ConfigDirector/configdirector-swift-sdk.git", from: "1.5.0"),
+    .package(url: "https://github.com/ConfigDirector/configdirector-swift-sdk.git", from: "1.5.1"),
 ],
 targets: [
     .target(
