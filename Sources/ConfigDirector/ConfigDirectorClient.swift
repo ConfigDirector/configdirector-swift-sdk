@@ -60,7 +60,8 @@ public final class ConfigDirectorClient: Sendable {
             identity: identity,
             session: URLSession(configuration: .default),
             lifecycle: NotificationCenterLifecycleObserver(),
-            telemetryOptions: TelemetryOptions()
+            telemetryOptions: TelemetryOptions(),
+            makeTransport: Self.makeTransport
         )
     }
 
@@ -70,7 +71,8 @@ public final class ConfigDirectorClient: Sendable {
         identity: SDKIdentity,
         session: URLSession,
         lifecycle: any AppLifecycleObserver,
-        telemetryOptions: TelemetryOptions
+        telemetryOptions: TelemetryOptions,
+        makeTransport: TransportFactory
     ) throws(ConfigDirectorError) {
         guard !clientSDKKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw ConfigDirectorError.missingClientSDKKey
@@ -101,18 +103,22 @@ public final class ConfigDirectorClient: Sendable {
         timeout = options.connection.timeout
         self.store = store
         self.telemetry = telemetry
-        transport = Self.makeTransport(
-            mode: options.connection.mode,
-            options: TransportOptions(
+        transport = makeTransport(
+            options.connection.mode,
+            TransportOptions(
                 clientSDKKey: clientSDKKey,
                 baseURL: baseURL,
                 metaContext: AppInfo.metaContext(metadata: options.metadata, identity: identity),
                 instanceID: UUID().uuidString,
                 logger: options.logger,
-                pollingInterval: options.connection.pollingInterval,
+                pollingInterval: Self.resolvePollingInterval(
+                    options.connection.pollingInterval,
+                    mode: options.connection.mode,
+                    logger: options.logger
+                ),
                 session: session
             ),
-            onConfigSet: { [store] configSet in store.handleConfigSet(configSet) }
+            { [store] configSet in store.handleConfigSet(configSet) }
         )
         self.lifecycle = lifecycle
         pausesWhileBackgrounded = options.connection.pausesWhileBackgrounded
@@ -340,7 +346,7 @@ public final class ConfigDirectorClient: Sendable {
         }
     }
 
-    private static func makeTransport(
+    static func makeTransport(
         mode: ConnectionMode,
         options: TransportOptions,
         onConfigSet: @escaping ConfigSetHandler
@@ -351,6 +357,24 @@ public final class ConfigDirectorClient: Sendable {
         case .polling:
             PollingTransport(options: options, onConfigSet: onConfigSet)
         }
+    }
+
+    private static func resolvePollingInterval(
+        _ configuredInterval: TimeInterval,
+        mode: ConnectionMode,
+        logger: any ConfigDirectorLogger
+    ) -> TimeInterval {
+        guard mode == .polling else { return configuredInterval }
+        let minimumInterval = ConnectionOptions.minimumPollingInterval
+        if configuredInterval >= minimumInterval {
+            return configuredInterval
+        }
+
+        logger.warn("""
+        pollingInterval of \(configuredInterval) seconds is below the minimum of \(minimumInterval) \
+        seconds. Using \(minimumInterval) seconds.
+        """)
+        return minimumInterval
     }
 
     private static func resolveBaseURL(_ baseURL: URL?) throws(ConfigDirectorError) -> URL {

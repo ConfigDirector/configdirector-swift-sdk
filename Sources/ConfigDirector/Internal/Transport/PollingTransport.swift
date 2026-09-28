@@ -67,7 +67,7 @@ final class PollingTransport: Transport {
     }
 
     private var willRetryOnInterval: Bool {
-        pollingInterval > 0 && state.withLock { $0.fatalError == nil }
+        state.withLock { $0.fatalError == nil }
     }
 
     private func schedulePolling(context: ConfigDirectorContext, timeout: TimeInterval, generation: Int) {

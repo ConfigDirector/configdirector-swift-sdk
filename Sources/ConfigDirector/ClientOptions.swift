@@ -6,17 +6,25 @@ public enum ConnectionMode: Sendable {
     /// ConfigDirector dashboard.
     case streaming
 
-    /// Fetches config state during initialization and then on a fixed interval.
+    /// Fetches config state during initialization and then every ``ConnectionOptions/pollingInterval``
+    /// seconds: 60 by default, and never less than 30. A value below the minimum is raised to the
+    /// minimum and a warning is logged.
     case polling
 }
 
 /// How the client connects to the ConfigDirector server.
 public struct ConnectionOptions: Sendable {
+    /// The ``pollingInterval`` used when none is given: 60 seconds.
+    public static let defaultPollingInterval: TimeInterval = 60
+
+    static let minimumPollingInterval: TimeInterval = 30
+
     /// The connection mode to use.
     public var mode: ConnectionMode
 
-    /// How often to re-fetch config state when ``mode`` is ``ConnectionMode/polling``. It has no
-    /// effect when streaming.
+    /// How often, in seconds, to re-fetch config state when ``mode`` is ``ConnectionMode/polling``.
+    /// Defaults to ``defaultPollingInterval``, 60 seconds; the minimum is 30 seconds. A value below
+    /// the minimum is raised to the minimum and a warning is logged. It has no effect when streaming.
     public var pollingInterval: TimeInterval
 
     /// How long to wait for initialization and context updates.
@@ -41,7 +49,7 @@ public struct ConnectionOptions: Sendable {
 
     public init(
         mode: ConnectionMode = .streaming,
-        pollingInterval: TimeInterval = 60,
+        pollingInterval: TimeInterval = Self.defaultPollingInterval,
         timeout: TimeInterval = 3,
         baseURL: URL? = nil,
         pausesWhileBackgrounded: Bool = true

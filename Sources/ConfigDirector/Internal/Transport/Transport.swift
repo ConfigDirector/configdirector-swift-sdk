@@ -2,6 +2,12 @@ import Foundation
 
 typealias ConfigSetHandler = @Sendable (ConfigSet) -> Void
 
+typealias TransportFactory = @Sendable (
+    ConnectionMode,
+    TransportOptions,
+    @escaping ConfigSetHandler
+) -> any Transport
+
 struct TransportOptions: Sendable {
     var clientSDKKey: String
     var baseURL: URL

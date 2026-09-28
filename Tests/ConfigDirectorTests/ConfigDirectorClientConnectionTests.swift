@@ -282,7 +282,7 @@ struct ConfigDirectorClientConnectionTests {
     @Test func pollingModeFetchesFromThePollingEndpoint() async throws {
         let fixture = ClientFixture()
         fixture.servePolling(servedConfigSet)
-        let client = try fixture.makeClient(mode: .polling, pollingInterval: 0.05)
+        let client = try fixture.makeClient(mode: .polling)
         defer { client.close() }
 
         await client.initialize()
@@ -295,7 +295,7 @@ struct ConfigDirectorClientConnectionTests {
     @Test func pollingModePicksUpChangesOnTheInterval() async throws {
         let fixture = ClientFixture()
         fixture.servePolling(servedConfigSet, deltaConfigSet([ServedConfig("dark-mode", "boolean", "false")]))
-        let client = try fixture.makeClient(mode: .polling, pollingInterval: 0.05)
+        let client = try fixture.makeClient(mode: .polling, makeTransport: transportPolling(every: 0.05))
         defer { client.close() }
 
         await client.initialize()
@@ -308,7 +308,7 @@ struct ConfigDirectorClientConnectionTests {
     @Test func pollingModeAppliesTheNewContextWhenItsFirstFetchFailsTransiently() async throws {
         let fixture = ClientFixture()
         fixture.servePolling(servedConfigSet)
-        let client = try fixture.makeClient(mode: .polling, pollingInterval: 0.05)
+        let client = try fixture.makeClient(mode: .polling, makeTransport: transportPolling(every: 0.05))
         defer { client.close() }
         await client.initialize(context: ConfigDirectorContext(id: "before"))
 

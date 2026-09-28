@@ -8,6 +8,13 @@ version can be tagged. See [Releasing](CONTRIBUTING.md#releasing).
 
 ## [Unreleased]
 
+### Changed
+
+- `ConnectionOptions.pollingInterval` has a minimum of 30 seconds; the default stays 60 seconds. A
+  value below the minimum is raised to 30 seconds with a single warning when a `.polling` client is
+  created, and the options keep the configured value. A zero or negative interval used to be passed
+  through as given, which fetched once and never polled again.
+
 ## [1.5.1] - 2026-09-26
 
 ### Fixed

@@ -34,24 +34,29 @@ final class ClientFixture: Sendable {
     func makeClient(
         mode: ConnectionMode = .streaming,
         timeout: TimeInterval = 1,
-        pollingInterval: TimeInterval = 60,
+        pollingInterval: TimeInterval? = nil,
         pausesWhileBackgrounded: Bool = true,
         lifecycle: (any AppLifecycleObserver)? = nil,
         telemetryFlushInterval: TimeInterval = 0.05,
         logger: any ConfigDirectorLogger = ConsoleLogger(level: .off),
-        identity: SDKIdentity = .swiftClientSDK
+        identity: SDKIdentity = .swiftClientSDK,
+        makeTransport: @escaping TransportFactory = ConfigDirectorClient.makeTransport
     ) throws -> ConfigDirectorClient {
-        try ConfigDirectorClient(
+        var connection = ConnectionOptions(
+            mode: mode,
+            timeout: timeout,
+            baseURL: baseURL,
+            pausesWhileBackgrounded: pausesWhileBackgrounded
+        )
+        if let pollingInterval {
+            connection.pollingInterval = pollingInterval
+        }
+
+        return try ConfigDirectorClient(
             clientSDKKey: "sdk-key",
             options: ConfigDirectorClientOptions(
                 metadata: ConfigDirectorMetaContext(appName: "test-app", appVersion: "2.3.4"),
-                connection: ConnectionOptions(
-                    mode: mode,
-                    pollingInterval: pollingInterval,
-                    timeout: timeout,
-                    baseURL: baseURL,
-                    pausesWhileBackgrounded: pausesWhileBackgrounded
-                ),
+                connection: connection,
                 logger: logger
             ),
             identity: identity,
@@ -64,7 +69,8 @@ final class ClientFixture: Sendable {
             telemetryOptions: TelemetryOptions(
                 flushInterval: telemetryFlushInterval,
                 initialFlushDelay: telemetryFlushInterval
-            )
+            ),
+            makeTransport: makeTransport
         )
     }
 
@@ -159,16 +165,33 @@ func deltaConfigSet(_ configs: [ServedConfig]) -> String {
 
 /// Keeps what the SDK logged, so a test can assert on a warning an application would see.
 final class RecordingLogger: ConfigDirectorLogger {
-    let level = ConfigDirectorLogLevel.debug
-
-    private let messages = Locked<[String]>([])
-
-    var recorded: [String] {
-        messages.withLock { $0 }
+    private struct Entry {
+        var level: ConfigDirectorLogLevel
+        var message: String
     }
 
-    func log(_: ConfigDirectorLogLevel, message: String, error _: (any Error)?) {
-        messages.withLock { $0.append(message) }
+    let level = ConfigDirectorLogLevel.debug
+
+    private let entries = Locked<[Entry]>([])
+
+    var recorded: [String] {
+        entries.withLock { $0.map(\.message) }
+    }
+
+    var warnings: [String] {
+        entries.withLock { $0.filter { $0.level == .warn }.map(\.message) }
+    }
+
+    func log(_ level: ConfigDirectorLogLevel, message: String, error _: (any Error)?) {
+        entries.withLock { $0.append(Entry(level: level, message: message)) }
+    }
+}
+
+func transportPolling(every interval: TimeInterval) -> TransportFactory {
+    { mode, options, onConfigSet in
+        var options = options
+        options.pollingInterval = interval
+        return ConfigDirectorClient.makeTransport(mode: mode, options: options, onConfigSet: onConfigSet)
     }
 }
 
