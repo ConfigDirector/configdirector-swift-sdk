@@ -152,7 +152,7 @@ public final class ConfigDirectorClient: Sendable {
     ///
     /// ```swift
     /// for await event in client.events {
-    ///     if case let .configsUpdated(keys) = event { print(keys) }
+    ///     if case let .configsUpdated(update) = event { print(update.keys, update.removedKeys) }
     /// }
     /// ```
     public var events: AsyncStream<ClientEvent> {
@@ -225,8 +225,9 @@ public final class ConfigDirectorClient: Sendable {
     /// from a call to ``updateContext(_:)``.
     ///
     /// The stream yields the config's current value immediately and then every time the evaluated
-    /// value changes. Consecutive identical values are not re-emitted. Cancelling the consuming task
-    /// stops watching.
+    /// value changes. Consecutive identical values are not re-emitted. When a full update no longer
+    /// carries `key`, the stream yields `defaultValue`, as ``value(for:default:)`` would now return
+    /// it. Cancelling the consuming task stops watching.
     ///
     /// ```swift
     /// .task {

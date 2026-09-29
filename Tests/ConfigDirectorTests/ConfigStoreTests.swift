@@ -42,6 +42,51 @@ struct ConfigStoreTests {
         return names
     }
 
+    private func nextConfigsUpdate() async -> ConfigsUpdate? {
+        while let event = await events.next() {
+            if case let .configsUpdated(update) = event {
+                return update
+            }
+        }
+        return nil
+    }
+
+    @Test func reportsTheKeysAFullSetDroppedAsRemoved() async {
+        store.handleConfigSet(ConfigSet(configs: [
+            "a": .make(key: "a", type: .string, value: "1"),
+            "b": .make(key: "b", type: .string, value: "2"),
+            "c": .make(key: "c", type: .string, value: "3"),
+        ]))
+        _ = await nextConfigsUpdate()
+
+        store.handleConfigSet(ConfigSet(configs: [
+            "b": .make(key: "b", type: .string, value: "changed"),
+        ]))
+
+        let update = await nextConfigsUpdate()
+        #expect(update?.keys == ["b"])
+        #expect(update?.removedKeys.sorted() == ["a", "c"])
+        #expect(store.value(for: "a", default: "gone") == "gone")
+    }
+
+    @Test func reportsNothingRemovedOnTheFirstSetOrADelta() async {
+        store.handleConfigSet(ConfigSet(configs: [
+            "a": .make(key: "a", type: .string, value: "1"),
+        ]))
+        let first = await nextConfigsUpdate()
+
+        store.handleConfigSet(ConfigSet(
+            configs: ["b": .make(key: "b", type: .string, value: "2")],
+            kind: .delta
+        ))
+
+        let delta = await nextConfigsUpdate()
+        #expect(first?.removedKeys == [])
+        #expect(delta?.keys == ["b"])
+        #expect(delta?.removedKeys == [])
+        #expect(store.value(for: "a", default: "gone") == "1")
+    }
+
     @Test func appliesThePendingContextBeforeReadyWhenConfigStateArrivesFirst() async {
         let context = ConfigDirectorContext(id: "user-1")
         store.beginConnect(reason: .contextUpdate, context: context)

@@ -82,7 +82,7 @@ struct ConfigDirectorClientTests {
         for _ in 0 ..< 3 {
             switch await events.next() {
             case let .ready(reason): seenReason = reason
-            case let .configsUpdated(keys): seenKeys = keys
+            case let .configsUpdated(update): seenKeys = update.keys
             case let .contextUpdated(context): seenContext = context
             default: break
             }

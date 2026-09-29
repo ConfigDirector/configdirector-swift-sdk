@@ -107,8 +107,12 @@ final class ConfigStore: Sendable {
 
     func handleConfigSet(_ configSet: ConfigSet) {
         let keys = Array(configSet.configs.keys)
-        let watchers = state.withLock { state -> [Watcher] in
+        let (watchers, removedKeys) = state.withLock { state -> ([Watcher], [String]) in
             let isDelta = state.hasReceivedConfigSet && configSet.kind == .delta
+            let replacesPrevious = state.hasReceivedConfigSet && !isDelta
+            let removedKeys = replacesPrevious
+                ? state.configs.keys.filter { configSet.configs[$0] == nil }
+                : []
             if isDelta {
                 state.configs.merge(configSet.configs) { _, updated in updated }
             } else {
@@ -117,15 +121,15 @@ final class ConfigStore: Sendable {
             state.hasReceivedConfigSet = true
 
             let affected = isDelta ? keys.compactMap { state.watchers[$0] } : Array(state.watchers.values)
-            return affected.flatMap { Array($0.values) }
+            return (affected.flatMap { Array($0.values) }, removedKeys)
         }
 
         markReady()
-        events.emit(.configsUpdated(keys))
+        events.emit(.configsUpdated(ConfigsUpdate(keys: keys, removedKeys: removedKeys)))
         for watcher in watchers {
             watcher.reevaluate()
         }
-        logger.debug("Config state received from the server: \(keys)")
+        logger.debug("Config state received from the server: \(keys), removed: \(removedKeys)")
     }
 
     func value<Value: ConfigValue>(for key: String, default defaultValue: Value) -> Value {

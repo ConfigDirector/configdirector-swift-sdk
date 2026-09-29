@@ -10,6 +10,13 @@ version can be tagged. See [Releasing](CONTRIBUTING.md#releasing).
 
 ### Changed
 
+- **Breaking:** `ClientEvent.configsUpdated` now carries a `ConfigsUpdate` struct instead of a
+  `[String]`. Its `keys` are the keys the update carried, as before, and its new `removedKeys` are
+  the keys a full update no longer carried, so a listener can tell a config that was removed from
+  one that was updated. Every `case let .configsUpdated(keys)` pattern becomes
+  `case let .configsUpdated(update)` and reads `update.keys`. Later fields can be added to the
+  struct without another break.
+
 - `ConnectionOptions.pollingInterval` has a minimum of 30 seconds; the default stays 60 seconds. A
   value below the minimum is raised to 30 seconds with a single warning when a `.polling` client is
   created, and the options keep the configured value. A zero or negative interval used to be passed
