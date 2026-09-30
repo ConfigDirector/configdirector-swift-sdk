@@ -63,6 +63,13 @@ final class TransportFixture: Sendable {
     }
 }
 
+extension Transport {
+    /// The transport tests connect for an initialization; the reason only matters to the client.
+    func connect(context: ConfigDirectorContext, timeout: TimeInterval) async throws {
+        try await connect(context: context, timeout: timeout, reason: .initialization)
+    }
+}
+
 /// The payload every transport posts to the server, read back from a recorded request.
 struct SentPayload: Decodable, Sendable {
     struct Context: Decodable, Sendable {

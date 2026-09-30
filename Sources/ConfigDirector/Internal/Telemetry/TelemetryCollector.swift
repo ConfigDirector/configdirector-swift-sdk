@@ -1,5 +1,11 @@
 import Foundation
 
+typealias TelemetryFactory = @Sendable (
+    any EventReporter,
+    any ConfigDirectorLogger,
+    TelemetryOptions
+) -> any TelemetryClient
+
 struct TelemetryOptions: Sendable {
     var flushInterval: TimeInterval = 30
     var initialFlushDelay: TimeInterval = 5

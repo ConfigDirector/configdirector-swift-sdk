@@ -19,7 +19,11 @@ struct ConfigDirectorClientPollingIntervalTests {
     }
 
     private struct IdleTransport: Transport {
-        func connect(context _: ConfigDirectorContext, timeout _: TimeInterval) async throws {}
+        func connect(
+            context _: ConfigDirectorContext,
+            timeout _: TimeInterval,
+            reason _: ConnectReason
+        ) async throws {}
         func disconnect() {}
         func close() {}
     }

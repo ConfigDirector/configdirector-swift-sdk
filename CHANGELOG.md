@@ -8,6 +8,17 @@ version can be tagged. See [Releasing](CONTRIBUTING.md#releasing).
 
 ## [Unreleased]
 
+### Added
+
+- The `ConfigDirectorTesting` product, for testing the code that reads configs:
+  `makeTestClient(values:timeout:logger:)` returns a `TestClient` whose `client` is the SDK's real
+  `ConfigDirectorClient` over an in-memory connection the test controls through
+  `setValue(_:for:)`, `removeValue(for:)`, `replaceValues(_:)`, `holdInitialization()`,
+  `completeInitialization()`, `failInitialization()`, `holdContextUpdate()`,
+  `completeContextUpdate()`, `failContextUpdate()`, and `contextUpdates`. Values are `TestValue`s,
+  written as literals. It opens no connection, sends no telemetry, and does not observe the app
+  lifecycle. Link it into test targets only.
+
 ### Changed
 
 - `isInitializing` now means the client is trying to get its very first config state. It becomes

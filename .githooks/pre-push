@@ -101,7 +101,7 @@ run "build (watchOS)" build_for_platform watchos arm64_32-apple-watchos8.0
 build_docs() {
     rm -rf .docs-build
     xcodebuild docbuild \
-        -scheme configdirector-swift-sdk \
+        -scheme configdirector-swift-sdk-Package \
         -destination 'generic/platform=macOS' \
         -derivedDataPath .docs-build \
         -quiet \
@@ -111,8 +111,9 @@ build_docs() {
 run "documentation" build_docs
 
 # The local-override workspace, not the project: the project resolves the released package, and
-# building that would say nothing about the working tree being pushed.
-run "sample app (iOS)" xcodebuild build \
+# building that would say nothing about the working tree being pushed. The iOS scheme builds for
+# testing, which includes the hosted test bundle that links ConfigDirectorTesting.
+run "sample app (iOS)" xcodebuild build-for-testing \
     -workspace Samples/ConfigDirectorSample-Local.xcworkspace \
     -scheme ConfigDirectorSample \
     -destination 'generic/platform=iOS Simulator' \

@@ -87,9 +87,11 @@ jobs:
             -Xswiftc -target -Xswiftc ${{ matrix.target }}
 
   docs:
-    # A documentation site is generated from the SDK's doc comments, and `xcodebuild docbuild`
-    # exits 0 on a broken symbol link — it just renders the link as plain text. The diagnostics
-    # file it writes is the only place that shows up, so the check is what actually gates it.
+    # A documentation site is generated from the doc comments of both products, and `xcodebuild
+    # docbuild` exits 0 on a broken symbol link — it just renders the link as plain text. The
+    # diagnostics file it writes is the only place that shows up, so the check is what actually
+    # gates it. The package-wide scheme is what covers both products; Xcode generates one scheme
+    # per product as well, and those would each build one.
     name: Documentation
     runs-on: macos-latest
     timeout-minutes: 20
@@ -102,7 +104,7 @@ jobs:
 
       - run: |
           xcodebuild docbuild \
-            -scheme configdirector-swift-sdk \
+            -scheme configdirector-swift-sdk-Package \
             -destination 'generic/platform=macOS' \
             -derivedDataPath .docs-build \
             -quiet
@@ -113,6 +115,8 @@ jobs:
     # The samples' project depends on the released package the way a consumer's app would, so the
     # local-override workspace is what gets built here: it swaps in this checkout, and a breaking
     # change to the public API fails here instead of reaching someone's app. No SDK key needed.
+    # The iOS scheme also builds its hosted test bundle, which links ConfigDirectorTesting while the
+    # app links ConfigDirector: the two have to coexist in one process.
     name: Sample app (${{ matrix.name }})
     runs-on: macos-latest
     timeout-minutes: 20
@@ -123,6 +127,7 @@ jobs:
           - name: iOS
             scheme: ConfigDirectorSample
             destination: generic/platform=iOS Simulator
+            action: build-for-testing
           - name: macOS
             scheme: ConfigDirectorSampleMac
             destination: generic/platform=macOS
@@ -140,7 +145,7 @@ jobs:
           xcode-version: latest-stable
 
       - run: |
-          xcodebuild build \
+          xcodebuild ${{ matrix.action || 'build' }} \
             -workspace Samples/ConfigDirectorSample-Local.xcworkspace \
             -scheme ${{ matrix.scheme }} \
             -destination '${{ matrix.destination }}' \

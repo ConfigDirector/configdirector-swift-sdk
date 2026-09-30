@@ -17,7 +17,11 @@ final class StreamingTransport: Transport {
         url = options.endpoint("client/sse/v1")
     }
 
-    func connect(context: ConfigDirectorContext, timeout: TimeInterval) async throws {
+    func connect(
+        context: ConfigDirectorContext,
+        timeout: TimeInterval,
+        reason _: ConnectReason
+    ) async throws {
         let connected = ConnectionGate()
         var configuration = EventSourceClient.Configuration(url: url)
         configuration.method = "POST"

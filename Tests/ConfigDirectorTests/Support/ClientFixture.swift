@@ -40,6 +40,7 @@ final class ClientFixture: Sendable {
         telemetryFlushInterval: TimeInterval = 0.05,
         logger: any ConfigDirectorLogger = ConsoleLogger(level: .off),
         identity: SDKIdentity = .swiftClientSDK,
+        makeTelemetry: @escaping TelemetryFactory = ConfigDirectorClient.makeTelemetry,
         makeTransport: @escaping TransportFactory = ConfigDirectorClient.makeTransport
     ) throws -> ConfigDirectorClient {
         var connection = ConnectionOptions(
@@ -70,6 +71,7 @@ final class ClientFixture: Sendable {
                 flushInterval: telemetryFlushInterval,
                 initialFlushDelay: telemetryFlushInterval
             ),
+            makeTelemetry: makeTelemetry,
             makeTransport: makeTransport
         )
     }

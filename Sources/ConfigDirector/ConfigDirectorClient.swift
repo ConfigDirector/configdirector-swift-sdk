@@ -61,6 +61,7 @@ public final class ConfigDirectorClient: Sendable {
             session: URLSession(configuration: .default),
             lifecycle: NotificationCenterLifecycleObserver(),
             telemetryOptions: TelemetryOptions(),
+            makeTelemetry: Self.makeTelemetry,
             makeTransport: Self.makeTransport
         )
     }
@@ -72,6 +73,7 @@ public final class ConfigDirectorClient: Sendable {
         session: URLSession,
         lifecycle: any AppLifecycleObserver,
         telemetryOptions: TelemetryOptions,
+        makeTelemetry: TelemetryFactory,
         makeTransport: TransportFactory
     ) throws(ConfigDirectorError) {
         guard !clientSDKKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
@@ -86,16 +88,16 @@ public final class ConfigDirectorClient: Sendable {
             """)
         }
 
-        let telemetry = TelemetryEventCollector(
-            reporter: HTTPEventReporter(
+        let telemetry = makeTelemetry(
+            HTTPEventReporter(
                 clientSDKKey: clientSDKKey,
                 baseURL: baseURL,
                 metaContext: AppInfo.metaContext(metadata: options.metadata, identity: identity),
                 logger: options.logger,
                 session: session
             ),
-            logger: options.logger,
-            options: telemetryOptions
+            options.logger,
+            telemetryOptions
         )
         let store = ConfigStore(logger: options.logger, telemetry: telemetry)
 
@@ -299,7 +301,11 @@ public final class ConfigDirectorClient: Sendable {
         let startedAt = ProcessInfo.processInfo.systemUptime
 
         do {
-            try await transport.connect(context: context ?? ConfigDirectorContext(), timeout: timeout)
+            try await transport.connect(
+                context: context ?? ConfigDirectorContext(),
+                timeout: timeout,
+                reason: reason
+            )
         } catch {
             connectionState.withLock { $0.isInitializing = false }
             store.abandonConnect()
@@ -350,19 +356,6 @@ public final class ConfigDirectorClient: Sendable {
             guard shouldResume else { return }
             logger.info("The app returned to the foreground, resuming the connection to the server")
             Task { await resumeNetwork() }
-        }
-    }
-
-    static func makeTransport(
-        mode: ConnectionMode,
-        options: TransportOptions,
-        onConfigSet: @escaping ConfigSetHandler
-    ) -> any Transport {
-        switch mode {
-        case .streaming:
-            StreamingTransport(options: options, onConfigSet: onConfigSet)
-        case .polling:
-            PollingTransport(options: options, onConfigSet: onConfigSet)
         }
     }
 

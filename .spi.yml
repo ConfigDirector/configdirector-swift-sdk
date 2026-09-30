@@ -2,4 +2,4 @@ version: 1
 builder:
   configs:
     - platform: macosSpm
-      documentation_targets: [ConfigDirector]
+      documentation_targets: [ConfigDirector, ConfigDirectorTesting]

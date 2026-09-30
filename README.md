@@ -19,8 +19,17 @@ targets: [
         name: "YourTarget",
         dependencies: [.product(name: "ConfigDirector", package: "configdirector-swift-sdk")]
     ),
+    .testTarget(
+        name: "YourTargetTests",
+        dependencies: [
+            "YourTarget",
+            .product(name: "ConfigDirectorTesting", package: "configdirector-swift-sdk"),
+        ]
+    ),
 ]
 ```
+
+The package has two products: `ConfigDirector`, the SDK, and `ConfigDirectorTesting`, tools for testing the code that reads your configs, which only test targets link.
 
 ## Retrieve a value
 
@@ -34,6 +43,25 @@ let darkMode = client.value(for: "dark-mode", default: false)
 ```
 
 Full details are in the [official documentation](https://docs.configdirector.com/sdks/mobile/swift).
+
+## Test your code
+
+`ConfigDirectorTesting` creates a **test client**: the SDK's real client connected to an in-memory server that your test controls. No network connection is opened and no telemetry is sent.
+
+```swift
+import ConfigDirectorTesting
+
+let testClient = makeTestClient(values: ["dark-mode": true, "max-items": 20])
+await testClient.client.initialize()
+
+let settings = Settings(client: testClient.client)
+#expect(settings.isDarkMode)
+
+testClient.setValue(false, for: "dark-mode")
+#expect(!settings.isDarkMode)
+```
+
+`testClient.client` is a `ConfigDirectorClient`, so it goes anywhere your code accepts one. See [Test your code](https://docs.configdirector.com/sdks/mobile/swift#test-your-code) in the documentation for holding and failing initialization, watching values under test, and what to expect.
 
 ## Documentation
 

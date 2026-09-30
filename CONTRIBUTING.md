@@ -11,6 +11,16 @@ The linters are separate tools, installed once per machine:
 brew install swiftlint swiftformat
 ```
 
+## The two products
+
+`ConfigDirector` is the SDK. `ConfigDirectorTesting` is the testing tools: the SDK's real client
+over an in-memory connection a test controls, wrapped in the test client API a consumer's tests
+use. The connection itself lives in the `ConfigDirector` target as `package` types, because it
+implements the SDK's internal transport and telemetry protocols; the testing product only converts
+`TestValue`s and forwards the controls. Only test targets link it, and both products always ship
+together, since they are one package. Its conformance tests live in `ConfigDirectorTestingTests`
+and reach the `package` symbols with a plain `import`.
+
 ## Building and testing
 
 ```bash
@@ -136,10 +146,15 @@ is quietly wrong. DocC records it only in a diagnostics file, so
 file and is what actually fails the build. Run the pair by hand with:
 
 ```bash
-xcodebuild docbuild -scheme configdirector-swift-sdk \
+xcodebuild docbuild -scheme configdirector-swift-sdk-Package \
   -destination 'generic/platform=macOS' -derivedDataPath .docs-build -quiet
 .github/scripts/check-docs-diagnostics.sh .docs-build
 ```
+
+The package-wide scheme is the one to build: with two products, Xcode generates a scheme per
+product as well, and each of those documents only its own. A doc comment in `ConfigDirectorTesting`
+cannot link to a symbol of `ConfigDirector` with a `` ``Module/Symbol`` `` reference, because DocC
+builds each product on its own; write the name as plain code instead.
 
 ## Sample apps
 
@@ -177,11 +192,16 @@ open Samples/ConfigDirectorSample-Local.xcworkspace   # samples + this checkout
 open Samples/ConfigDirectorSample.xcodeproj           # samples + the released SDK
 ```
 
-Building them needs no SDK key — without one each app says so and runs anyway:
+Building them needs no SDK key — without one each app says so and runs anyway. The iOS scheme
+also has a hosted unit-test bundle, `ConfigDirectorSampleTests`, which links `ConfigDirectorTesting`
+while the app links `ConfigDirector`; building it for testing is what proves the two can coexist in
+one process. It depends on the released package having the product, so it resolves in the bare
+project only once a release ships `ConfigDirectorTesting`; the workspace builds it against this
+checkout either way.
 
 ```bash
 xcodebuild -workspace Samples/ConfigDirectorSample-Local.xcworkspace \
-  -scheme ConfigDirectorSample -destination 'generic/platform=iOS Simulator' build
+  -scheme ConfigDirectorSample -destination 'generic/platform=iOS Simulator' build-for-testing
 
 xcodebuild -workspace Samples/ConfigDirectorSample-Local.xcworkspace \
   -scheme ConfigDirectorSampleMac -destination 'generic/platform=macOS' build
@@ -212,7 +232,8 @@ it builds and launches, and every request it makes fails.
 The `.xcodeproj` is written by hand rather than generated, so it needs no extra tooling to open. It
 uses file-system-synchronized groups, which means adding or removing a source file under any of
 `Samples/ConfigDirectorSample`, `Samples/ConfigDirectorSampleMac`, `Samples/ConfigDirectorSampleTV`,
-`Samples/ConfigDirectorSampleWatch` or `Samples/Shared` does not touch the project file at all.
+`Samples/ConfigDirectorSampleWatch`, `Samples/ConfigDirectorSampleTests` or `Samples/Shared` does not
+touch the project file at all.
 `Samples/Shared` belongs to all four targets: it holds everything that calls the SDK, leaving each
 app only its entry point and its own layout.
 

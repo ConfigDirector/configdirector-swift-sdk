@@ -65,15 +65,15 @@ private struct TransportPayload: Encodable {
 /// handler it was created with.
 protocol Transport: Sendable {
     /// Connects using `context`, returning once the connection is established or once `timeout`
-    /// elapses.
+    /// elapses. `reason` is what prompted the client to connect.
     ///
     /// Returning does not imply config state was received; that arrives on the handler. Throws
     /// ``ConfigDirectorError/connectionFailed(message:statusCode:)`` when the connection fails in a
     /// way that retrying cannot fix.
-    func connect(context: ConfigDirectorContext, timeout: TimeInterval) async throws
+    func connect(context: ConfigDirectorContext, timeout: TimeInterval, reason: ConnectReason) async throws
 
     /// Drops the connection without releasing the transport. It can be reconnected by calling
-    /// ``connect(context:timeout:)`` again.
+    /// ``connect(context:timeout:reason:)`` again.
     func disconnect()
 
     /// Drops the connection and releases every resource the transport holds.

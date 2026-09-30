@@ -22,7 +22,11 @@ final class PollingTransport: Transport {
         url = options.endpoint("client/polling/v1")
     }
 
-    func connect(context: ConfigDirectorContext, timeout: TimeInterval) async throws {
+    func connect(
+        context: ConfigDirectorContext,
+        timeout: TimeInterval,
+        reason _: ConnectReason
+    ) async throws {
         let (isClosed, fatalError) = state.withLock { ($0.isClosed, $0.fatalError) }
         guard !isClosed else { return }
         if let fatalError {
