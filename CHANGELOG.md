@@ -8,6 +8,8 @@ version can be tagged. See [Releasing](CONTRIBUTING.md#releasing).
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-09-29
+
 ### Changed
 
 - **Breaking:** `ClientEvent.configsUpdated` now carries a `ConfigsUpdate` struct instead of a
