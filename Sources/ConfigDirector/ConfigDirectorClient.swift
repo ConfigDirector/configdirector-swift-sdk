@@ -140,10 +140,15 @@ public final class ConfigDirectorClient: Sendable {
         store.isReady
     }
 
-    /// Whether the client is currently initializing. It is `false` on creation, `true` after
-    /// ``initialize(context:)`` is called, and `false` again once initialization completes.
+    /// Whether the client is trying to get its very first config state from the server.
+    ///
+    /// It is `false` on creation, becomes `true` when ``initialize(context:)`` is called on a
+    /// client that has never received config state, stays `true` through timeouts and retries, and
+    /// becomes `false` when the first config state arrives, when an unrecoverable connection error
+    /// stops the retries, or on ``close()``. ``updateContext(_:)`` and ``resumeNetwork()`` never
+    /// set it.
     public var isInitializing: Bool {
-        connectionState.withLock { $0.isInitializing }
+        connectionState.withLock { $0.isInitializing } && !store.hasReceivedConfigSet
     }
 
     /// Every event the client publishes, from the moment this stream is created.
@@ -189,7 +194,6 @@ public final class ConfigDirectorClient: Sendable {
     public func initialize(context: ConfigDirectorContext? = nil) async {
         connectionState.withLock { $0.isInitializing = true }
         await connect(context: context, reason: .initialization)
-        connectionState.withLock { $0.isInitializing = false }
     }
 
     /// Updates the user's context and re-evaluates every config against it.
@@ -275,6 +279,7 @@ public final class ConfigDirectorClient: Sendable {
         guard !wasClosed else { return }
 
         logger.debug("close() called, closing the connection to the server and removing all observers")
+        connectionState.withLock { $0.isInitializing = false }
         lifecycle.stop()
         telemetry.close()
         store.close()
@@ -296,6 +301,7 @@ public final class ConfigDirectorClient: Sendable {
         do {
             try await transport.connect(context: context ?? ConfigDirectorContext(), timeout: timeout)
         } catch {
+            connectionState.withLock { $0.isInitializing = false }
             store.abandonConnect()
             logger.error("An error occurred during \(reason)", error: error)
             return

@@ -8,6 +8,16 @@ version can be tagged. See [Releasing](CONTRIBUTING.md#releasing).
 
 ## [Unreleased]
 
+### Changed
+
+- `isInitializing` now means the client is trying to get its very first config state. It becomes
+  `true` when `initialize(context:)` is called on a client that has never received config state,
+  stays `true` through timeouts and retries, and becomes `false` when the first config state
+  arrives, when an unrecoverable connection error stops the retries, or on `close()`. Before, it
+  turned `false` as soon as `initialize(context:)` returned, including after a timeout while the
+  client kept retrying, and a later `initialize(context:)` on a client that already had config
+  state set it again.
+
 ## [1.6.0] - 2026-09-29
 
 ### Changed

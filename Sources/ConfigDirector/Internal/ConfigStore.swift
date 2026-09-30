@@ -35,6 +35,10 @@ final class ConfigStore: Sendable {
         self.telemetry = telemetry
     }
 
+    var hasReceivedConfigSet: Bool {
+        state.withLock(\.hasReceivedConfigSet)
+    }
+
     var isReady: Bool {
         state.withLock { $0.isReady }
     }

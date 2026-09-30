@@ -134,7 +134,7 @@ struct ConfigDirectorClientConnectionTests {
         #expect(elapsed >= 0.25)
         #expect(elapsed < 2)
         #expect(client.isReady == false)
-        #expect(client.isInitializing == false)
+        #expect(client.isInitializing, "the client keeps trying to get its first config state")
         #expect(client.value(for: "dark-mode", default: false) == false)
     }
 
