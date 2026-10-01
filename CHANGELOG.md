@@ -8,6 +8,8 @@ version can be tagged. See [Releasing](CONTRIBUTING.md#releasing).
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-10-01
+
 ### Added
 
 - The `ConfigDirectorTesting` product, for testing the code that reads configs:

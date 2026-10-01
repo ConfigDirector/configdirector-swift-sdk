@@ -12,7 +12,7 @@ In Xcode, go to **File → Add Package Dependencies…** and enter the package U
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/ConfigDirector/configdirector-swift-sdk", from: "1.6.0"),
+    .package(url: "https://github.com/ConfigDirector/configdirector-swift-sdk", from: "1.7.0"),
 ],
 targets: [
     .target(
