@@ -765,7 +765,7 @@
 			repositoryURL = "https://github.com/ConfigDirector/configdirector-swift-sdk.git";
 			requirement = {
 				kind = upToNextMajorVersion;
-				minimumVersion = 1.5.1;
+				minimumVersion = 1.7.0;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
