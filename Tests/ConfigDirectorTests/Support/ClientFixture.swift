@@ -40,6 +40,7 @@ final class ClientFixture: Sendable {
         telemetryFlushInterval: TimeInterval = 0.05,
         logger: any ConfigDirectorLogger = ConsoleLogger(level: .off),
         identity: SDKIdentity = .swiftClientSDK,
+        clientSession: ClientSession = ClientSession(instanceID: "instance-1", ephemeral: false),
         makeTelemetry: @escaping TelemetryFactory = ConfigDirectorClient.makeTelemetry,
         makeTransport: @escaping TransportFactory = ConfigDirectorClient.makeTransport
     ) throws -> ConfigDirectorClient {
@@ -61,6 +62,7 @@ final class ClientFixture: Sendable {
                 logger: logger
             ),
             identity: identity,
+            clientSession: clientSession,
             session: session,
             lifecycle: lifecycle ?? NotificationCenterLifecycleObserver(
                 center: notifications,

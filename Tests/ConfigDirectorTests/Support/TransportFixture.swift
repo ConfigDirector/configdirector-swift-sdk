@@ -25,7 +25,7 @@ final class TransportFixture: Sendable {
                 appVersion: "1.0",
                 userAgent: "iOS"
             ),
-            instanceID: "instance-1",
+            clientSession: ClientSession(instanceID: "instance-1", ephemeral: false),
             logger: ConsoleLogger(level: .off),
             pollingInterval: pollingInterval,
             session: StubURLProtocol.makeSession(),
@@ -90,6 +90,7 @@ struct SentPayload: Decodable, Sendable {
     var metaContext: Meta
     var clientSdkKey: String
     var instanceId: String
+    var ephemeral: Bool?
     var lastUpdateTimestamp: String?
 }
 

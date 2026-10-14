@@ -8,6 +8,15 @@ version can be tagged. See [Releasing](CONTRIBUTING.md#releasing).
 
 ## [Unreleased]
 
+### Changed
+
+- The client keeps its instance ID across app launches. It is stored in the app's standard
+  `UserDefaults` and reused for six hours from the moment it was generated, so an app reopened
+  within that window continues the same client session instead of starting a new one. After six
+  hours, or when the stored ID is unusable, a new one is generated and stored. The ID lives only in
+  the app's own container: an uninstall discards it, and extensions do not share it. When it cannot
+  be read or stored, the client uses one for this launch only and tells the server so.
+
 ## [1.7.0] - 2026-10-01
 
 ### Added

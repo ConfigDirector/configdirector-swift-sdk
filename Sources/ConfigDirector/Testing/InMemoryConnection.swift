@@ -17,6 +17,7 @@ package final class InMemoryConnection: Sendable {
                     logger: logger
                 ),
                 identity: .swiftClientSDK,
+                clientSession: ClientSession(instanceID: UUID().uuidString, ephemeral: true),
                 session: RecordingURLProtocol.makeSession(),
                 lifecycle: NoLifecycleObserver(),
                 telemetryOptions: TelemetryOptions(),

@@ -12,7 +12,7 @@ struct TransportOptions: Sendable {
     var clientSDKKey: String
     var baseURL: URL
     var metaContext: SDKMetaContext
-    var instanceID: String
+    var clientSession: ClientSession
     var logger: any ConfigDirectorLogger
     var pollingInterval: TimeInterval
     var session: URLSession = .shared
@@ -41,7 +41,8 @@ struct TransportOptions: Sendable {
             givenContext: context,
             metaContext: metaContext,
             clientSDKKey: clientSDKKey,
-            instanceID: instanceID,
+            instanceID: clientSession.instanceID,
+            ephemeral: clientSession.ephemeral ? true : nil,
             lastUpdateTimestamp: lastUpdateTimestamp
         ))
     }
@@ -52,10 +53,11 @@ private struct TransportPayload: Encodable {
     var metaContext: SDKMetaContext
     var clientSDKKey: String
     var instanceID: String
+    var ephemeral: Bool?
     var lastUpdateTimestamp: String?
 
     enum CodingKeys: String, CodingKey {
-        case givenContext, metaContext, lastUpdateTimestamp
+        case givenContext, metaContext, ephemeral, lastUpdateTimestamp
         case clientSDKKey = "clientSdkKey"
         case instanceID = "instanceId"
     }

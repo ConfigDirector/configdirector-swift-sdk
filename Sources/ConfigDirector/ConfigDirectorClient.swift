@@ -58,6 +58,10 @@ public final class ConfigDirectorClient: Sendable {
             clientSDKKey: clientSDKKey,
             options: options,
             identity: identity,
+            clientSession: ClientSession.current(
+                storage: UserDefaultsInstanceIDStorage(),
+                logger: options.logger
+            ),
             session: URLSession(configuration: .default),
             lifecycle: NotificationCenterLifecycleObserver(),
             telemetryOptions: TelemetryOptions(),
@@ -70,6 +74,7 @@ public final class ConfigDirectorClient: Sendable {
         clientSDKKey: String,
         options: ConfigDirectorClientOptions,
         identity: SDKIdentity,
+        clientSession: ClientSession,
         session: URLSession,
         lifecycle: any AppLifecycleObserver,
         telemetryOptions: TelemetryOptions,
@@ -111,7 +116,7 @@ public final class ConfigDirectorClient: Sendable {
                 clientSDKKey: clientSDKKey,
                 baseURL: baseURL,
                 metaContext: AppInfo.metaContext(metadata: options.metadata, identity: identity),
-                instanceID: UUID().uuidString,
+                clientSession: clientSession,
                 logger: options.logger,
                 pollingInterval: Self.resolvePollingInterval(
                     options.connection.pollingInterval,

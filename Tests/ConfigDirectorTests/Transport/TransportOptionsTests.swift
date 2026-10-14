@@ -3,12 +3,15 @@ import Foundation
 import Testing
 
 struct TransportOptionsTests {
-    private func makeOptions(baseURL: String) -> TransportOptions {
+    private func makeOptions(
+        baseURL: String = "https://example.test",
+        clientSession: ClientSession = ClientSession(instanceID: "instance-1", ephemeral: false)
+    ) -> TransportOptions {
         TransportOptions(
             clientSDKKey: "test-key",
             baseURL: URL(string: baseURL)!,
             metaContext: SDKMetaContext(sdkName: "swift-client-sdk", sdkVersion: "0.1.0"),
-            instanceID: "instance-1",
+            clientSession: clientSession,
             logger: ConsoleLogger(level: .off),
             pollingInterval: 60
         )
@@ -42,6 +45,30 @@ struct TransportOptionsTests {
         #expect(withoutTimestamp.givenContext.id == "user-1")
         #expect(withoutTimestamp.givenContext.name == "Ada")
         #expect(withoutTimestamp.givenContext.anonymous == true)
+    }
+
+    @Test func marksAnInstanceIDThatIsNotStorageBackedAsEphemeral() throws {
+        let options = makeOptions(clientSession: ClientSession(instanceID: "instance-2", ephemeral: true))
+
+        let payload = try JSONDecoder().decode(
+            SentPayload.self,
+            from: options.payload(for: ConfigDirectorContext())
+        )
+
+        #expect(payload.instanceId == "instance-2")
+        #expect(payload.ephemeral == true)
+    }
+
+    @Test func omitsTheEphemeralFlagForAStorageBackedInstanceID() throws {
+        let options = makeOptions(clientSession: ClientSession(instanceID: "instance-1", ephemeral: false))
+
+        let fields = try #require(
+            JSONSerialization
+                .jsonObject(with: options.payload(for: ConfigDirectorContext())) as? [String: Any]
+        )
+
+        #expect(fields["instanceId"] as? String == "instance-1")
+        #expect(fields.keys.contains("ephemeral") == false)
     }
 
     @Test(arguments: [

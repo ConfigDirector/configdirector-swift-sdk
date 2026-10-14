@@ -3,7 +3,8 @@ import Foundation
 import Testing
 
 /// Exercises the seams the in-memory connection relies on: the transport learns what prompted each
-/// attempt, and telemetry is built through the factory the client is given.
+/// attempt, telemetry is built through the factory the client is given, and the client session it
+/// is given is what the server sees.
 struct ConfigDirectorClientInjectionTests {
     private final class ReasonRecorder: Sendable {
         let reasons = Locked<[ConnectReason]>([])
@@ -88,5 +89,20 @@ struct ConfigDirectorClientInjectionTests {
         #expect(telemetry.events.withLock { $0.map(\.key) } == ["dark-mode"])
         await settle()
         #expect(fixture.telemetryRequests.isEmpty)
+    }
+
+    @Test func sendsTheClientSessionItIsGivenWithEveryConnection() async throws {
+        let fixture = ClientFixture()
+        fixture.serveStream(servedConfigSet)
+        let client = try fixture.makeClient(
+            clientSession: ClientSession(instanceID: "instance-2", ephemeral: true)
+        )
+        defer { client.close() }
+
+        await client.initialize()
+
+        let payload = try #require(fixture.streamRequests.first?.payload)
+        #expect(payload.instanceId == "instance-2")
+        #expect(payload.ephemeral == true)
     }
 }
