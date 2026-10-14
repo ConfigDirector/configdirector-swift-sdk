@@ -47,6 +47,17 @@ struct TransportOptionsTests {
         #expect(withoutTimestamp.givenContext.anonymous == true)
     }
 
+    @Test func sendsTheContextKindInTheGivenContext() throws {
+        let options = makeOptions()
+
+        let payload = try JSONDecoder().decode(
+            SentPayload.self,
+            from: options.payload(for: ConfigDirectorContext(id: "42", kind: "device"))
+        )
+
+        #expect(payload.givenContext.kind == "device")
+    }
+
     @Test func marksAnInstanceIDThatIsNotStorageBackedAsEphemeral() throws {
         let options = makeOptions(clientSession: ClientSession(instanceID: "instance-2", ephemeral: true))
 

@@ -19,6 +19,8 @@ struct TelemetryOptions: Sendable {
 protocol TelemetryClient: Sendable {
     func evaluatedConfig(_ event: EvaluatedConfigEvent)
 
+    func recordInvalidContextSubmission(contextKindSample: String)
+
     /// Reports the events collected so far against the previous context, and attributes the ones
     /// collected from now on to `context`.
     func updateContext(_ context: ConfigDirectorContext?)
@@ -47,6 +49,7 @@ final class TelemetryEventCollector: TelemetryClient {
     private let logger: any ConfigDirectorLogger
     private let options: TelemetryOptions
     private let queue: EventQueue<EvaluatedConfigEvent>
+    private let invalidContextSubmissions = InvalidContextSubmissions()
     private let flushes = SerialAsyncQueue()
     private let state = Locked(State())
 
@@ -72,10 +75,15 @@ final class TelemetryEventCollector: TelemetryClient {
         queue.push(event)
     }
 
+    func recordInvalidContextSubmission(contextKindSample: String) {
+        guard state.withLock({ $0.isCollecting }) else { return }
+        invalidContextSubmissions.record(contextKindSample: contextKindSample)
+    }
+
     func updateContext(_ context: ConfigDirectorContext?) {
         guard !state.withLock({ $0.isClosed }) else { return }
 
-        let pending = takeSnapshot()
+        let pending = takeReport()
         state.withLock { $0.context = context }
         Task { [self] in await enqueueReport(pending) }
 
@@ -85,7 +93,7 @@ final class TelemetryEventCollector: TelemetryClient {
     func flush() async {
         guard !state.withLock({ $0.isClosed }) else { return }
 
-        await enqueueReport(takeSnapshot())
+        await enqueueReport(takeReport())
         restartTimer()
     }
 
@@ -100,17 +108,22 @@ final class TelemetryEventCollector: TelemetryClient {
         }
         timer?.cancel()
 
-        let pending = takeSnapshot()
+        let pending = takeReport()
         Task { [self] in
             await enqueueReport(pending)
             reporter.close()
             queue.clear()
+            invalidContextSubmissions.clear()
         }
     }
 
-    private func takeSnapshot() -> EventReport? {
-        guard !queue.isEmpty else { return nil }
-        return EventReport(snapshot: queue.takeSnapshot(), context: state.withLock { $0.context })
+    private func takeReport() -> EventReport? {
+        let report = EventReport(
+            snapshot: queue.takeSnapshot(),
+            invalidContextSubmissions: invalidContextSubmissions.takeAggregated(),
+            context: state.withLock { $0.context }
+        )
+        return report.isEmpty ? nil : report
     }
 
     /// Sends `report` after whatever is already in flight, so batches reach the server in the order
@@ -137,6 +150,7 @@ final class TelemetryEventCollector: TelemetryClient {
         timer?.cancel()
 
         queue.clear()
+        invalidContextSubmissions.clear()
         reporter.close()
         logger.warn("""
         [TelemetryEventCollector] Received a fatal error while reporting telemetry. No longer \
@@ -156,7 +170,7 @@ final class TelemetryEventCollector: TelemetryClient {
                 let slept: Void? = try? await Task.sleep(seconds: next)
                 guard slept != nil, let self else { return }
 
-                await enqueueReport(takeSnapshot())
+                await enqueueReport(takeReport())
                 next = options.flushInterval
             }
         }

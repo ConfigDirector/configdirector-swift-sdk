@@ -1,6 +1,7 @@
 import Foundation
 
-/// The user's context, sent to ConfigDirector and used to evaluate targeting rules.
+/// The user's context, sent to ConfigDirector and used to evaluate targeting rules. A context can
+/// also stand for another kind of entity, such as a device or an organization, through its ``kind``.
 public struct ConfigDirectorContext: Sendable, Equatable {
     /// The user's identifier. This should uniquely identify an application user.
     ///
@@ -8,6 +9,16 @@ public struct ConfigDirectorContext: Sendable, Equatable {
     /// random one. This value segments users in percentage rollouts, so changing it can move a user
     /// into a different percentile.
     public var id: String?
+
+    /// The context kind, such as `user`, `device` or `organization`, exactly as it was given, or `nil`
+    /// when none was given, which means `user`.
+    ///
+    /// A context kind has 1 to 64 characters, using only lowercase ASCII letters, digits, `-` and
+    /// `_`, and is never trimmed or changed. A context with any other context kind is ignored as a
+    /// whole when it is passed to ``ConfigDirectorClient/initialize(context:)`` or
+    /// ``ConfigDirectorClient/updateContext(_:)``: the client logs an error and evaluates configs as
+    /// if no context was given.
+    public var kind: String?
 
     /// The user's display name. It is shown in the ConfigDirector dashboard and may be used by
     /// targeting rules.
@@ -28,11 +39,13 @@ public struct ConfigDirectorContext: Sendable, Equatable {
 
     public init(
         id: String? = nil,
+        kind: String? = nil,
         name: String? = nil,
         traits: [String: TraitValue]? = nil,
         isAnonymous: Bool? = nil
     ) {
         self.id = id
+        self.kind = kind
         self.name = name
         self.traits = traits
         self.isAnonymous = isAnonymous
@@ -143,12 +156,13 @@ extension ConfigDirectorContext.TraitValue: Encodable {
 
 extension ConfigDirectorContext: Encodable {
     private enum CodingKeys: String, CodingKey {
-        case id, name, traits, anonymous
+        case id, kind, name, traits, anonymous
     }
 
     public func encode(to encoder: any Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encodeIfPresent(id, forKey: .id)
+        try container.encodeIfPresent(kind, forKey: .kind)
         try container.encodeIfPresent(name, forKey: .name)
         try container.encodeIfPresent(traits, forKey: .traits)
         try container.encodeIfPresent(isAnonymous, forKey: .anonymous)

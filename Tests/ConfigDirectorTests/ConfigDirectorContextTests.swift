@@ -35,6 +35,31 @@ struct ConfigDirectorContextTests {
         #expect(traits["nickname"] is NSNull)
     }
 
+    @Test func encodesTheContextKindAsGiven() throws {
+        let context = ConfigDirectorContext(id: "42", kind: "device")
+
+        let encoded = try JSONEncoder().encode(context)
+        let json = try #require(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+
+        #expect(json["kind"] as? String == "device")
+    }
+
+    @Test func omitsTheContextKindWhenNoneWasGiven() throws {
+        let context = ConfigDirectorContext(id: "42")
+
+        let encoded = try JSONEncoder().encode(context)
+        let json = try #require(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+
+        #expect(json.keys.contains("kind") == false)
+    }
+
+    @Test func doesNotEqualTheSameContextWithContextKindUser() {
+        let withoutContextKind = ConfigDirectorContext(id: "42")
+        let withContextKindUser = ConfigDirectorContext(id: "42", kind: "user")
+
+        #expect(withoutContextKind != withContextKindUser)
+    }
+
     @Test(arguments: [Double.nan, .infinity, -.infinity])
     func encodesANonFiniteDoubleTraitAsNull(value: Double) throws {
         let context = ConfigDirectorContext(traits: ["score": .double(value), "nested": [.double(value)]])

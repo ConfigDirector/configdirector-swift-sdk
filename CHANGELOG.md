@@ -8,6 +8,25 @@ version can be tagged. See [Releasing](CONTRIBUTING.md#releasing).
 
 ## [Unreleased]
 
+### Added
+
+- A context can now carry a context kind, such as `device` or `organization`, passed as
+  `ConfigDirectorContext(id:kind:name:traits:isAnonymous:)` and read back as
+  `ConfigDirectorContext.kind`. Leaving it out, or passing `nil`, means `user`, as before, and
+  `kind` then reads `nil`. A context kind has 1 to 64 characters, using only lowercase ASCII
+  letters, digits, `-` and `_`, and is sent exactly as given. Equality includes it, so a context
+  without a context kind and one with context kind `user` are not equal, though both are evaluated
+  as `user`. Existing call sites compile unchanged.
+- `initialize(context:)` and `updateContext(_:)` ignore a context whose context kind is invalid.
+  They log an error each time, stop using the previous context, and evaluate configs as if no
+  context was given, so `client.context`, `ClientEvent.contextUpdated` and
+  `ConfigEvaluation.context` are `nil` afterwards and `resumeNetwork()` reconnects without a
+  context. Creating the context never fails because of its context kind. Telemetry counts each
+  ignored context with its context kind, never its id, name or traits.
+- The test client (`ConfigDirectorTesting`) records an empty context in `contextUpdates` for an
+  `initialize` or `updateContext` whose context has an invalid context kind, since the client
+  connects without it.
+
 ### Changed
 
 - The client keeps its instance ID across app launches. It is stored in the app's standard

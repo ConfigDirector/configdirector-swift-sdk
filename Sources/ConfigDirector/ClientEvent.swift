@@ -21,7 +21,8 @@ public enum ClientEvent: Sendable {
     /// full update no longer contained.
     case configsUpdated(ConfigsUpdate)
 
-    /// A new context has taken effect.
+    /// A new context has taken effect. It is `nil` when there is none, including after a context with
+    /// an invalid context kind was ignored.
     case contextUpdated(ConfigDirectorContext?)
 }
 

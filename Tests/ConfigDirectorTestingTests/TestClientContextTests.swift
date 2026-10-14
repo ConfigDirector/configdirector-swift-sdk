@@ -5,6 +5,7 @@ import Testing
 
 private let userA = ConfigDirectorContext(id: "user-a")
 private let userB = ConfigDirectorContext(id: "user-b")
+private let deviceWithAnInvalidContextKind = ConfigDirectorContext(id: "device-42", kind: "Device")
 
 /// Context updates, resumes, and closing, from the conformance scenarios of the testing contract.
 struct TestClientContextTests {
@@ -31,6 +32,30 @@ struct TestClientContextTests {
         await testClient.client.initialize()
 
         #expect(testClient.contextUpdates == [ConfigDirectorContext()])
+    }
+
+    @Test func initializeWithAnInvalidContextKindRecordsAnEmptyContext() async {
+        let testClient = fixture.makeTestClient()
+        defer { testClient.client.close() }
+
+        await testClient.client.initialize(context: deviceWithAnInvalidContextKind)
+
+        #expect(testClient.contextUpdates == [ConfigDirectorContext()])
+        #expect(testClient.client.context == nil)
+        #expect(fixture.logger.errors.count == 1)
+    }
+
+    @Test func updateContextWithAnInvalidContextKindRecordsAnEmptyContext() async {
+        let testClient = fixture.makeTestClient()
+        defer { testClient.client.close() }
+        let client = testClient.client
+        await client.initialize(context: userA)
+
+        await client.updateContext(deviceWithAnInvalidContextKind)
+
+        #expect(testClient.contextUpdates == [userA, ConfigDirectorContext()])
+        #expect(client.context == nil)
+        #expect(fixture.logger.errors.count == 1)
     }
 
     @Test func s26AHeldUpdateContextStaysPendingUntilCompleted() async throws {

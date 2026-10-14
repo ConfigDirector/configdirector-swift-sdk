@@ -162,6 +162,13 @@ let servedConfigSet = configSetJSON([
     ServedConfig("theme", "json", #"{"primaryColor":"blue","cornerRadius":8}"#),
 ])
 
+let contextWithAnInvalidContextKind = ConfigDirectorContext(
+    id: "device-42",
+    kind: "Device",
+    name: "Kitchen tablet",
+    traits: ["model": "t-1000"]
+)
+
 /// A config set carrying only the configs that changed.
 func deltaConfigSet(_ configs: [ServedConfig]) -> String {
     configSetJSON(configs, kind: "delta")
@@ -186,6 +193,10 @@ final class RecordingLogger: ConfigDirectorLogger {
         entries.withLock { $0.filter { $0.level == .warn }.map(\.message) }
     }
 
+    var errors: [String] {
+        entries.withLock { $0.filter { $0.level == .error }.map(\.message) }
+    }
+
     func log(_ level: ConfigDirectorLogLevel, message: String, error _: (any Error)?) {
         entries.withLock { $0.append(Entry(level: level, message: message)) }
     }
@@ -195,6 +206,14 @@ func transportPolling(every interval: TimeInterval) -> TransportFactory {
     { mode, options, onConfigSet in
         var options = options
         options.pollingInterval = interval
+        return ConfigDirectorClient.makeTransport(mode: mode, options: options, onConfigSet: onConfigSet)
+    }
+}
+
+func transportRetrying(after delay: TimeInterval) -> TransportFactory {
+    { mode, options, onConfigSet in
+        var options = options
+        options.retryDelay = { _ in delay }
         return ConfigDirectorClient.makeTransport(mode: mode, options: options, onConfigSet: onConfigSet)
     }
 }
@@ -240,8 +259,21 @@ struct TelemetryReport: Decodable, Sendable {
         var evaluationReason: String
     }
 
+    struct AggregatedInvalidContextSubmission: Decodable, Sendable {
+        var startTime: String
+        var endTime: String
+        var count: Int
+        var event: ReportedInvalidContextSubmission
+    }
+
+    struct ReportedInvalidContextSubmission: Decodable, Sendable {
+        var reason: String
+        var kindSample: String?
+    }
+
     struct Events: Decodable, Sendable {
         var evaluatedConfig: [Aggregated]
+        var invalidContext: [AggregatedInvalidContextSubmission]
     }
 
     struct Dropped: Decodable, Sendable {

@@ -47,13 +47,18 @@ final class ConfigStore: Sendable {
         state.withLock { $0.context }
     }
 
-    func beginConnect(reason: ConnectReason, context: ConfigDirectorContext?) {
+    func beginConnect(
+        reason: ConnectReason,
+        suppliedContext: ConfigDirectorContext?
+    ) -> ConfigDirectorContext? {
+        let context = contextToConnectWith(suppliedContext, reason: reason)
         state.withLock {
             $0.isReady = false
             $0.pendingReason = reason
             $0.pendingContext = context
             $0.hasPendingContext = true
         }
+        return context
     }
 
     func abandonConnect() {
@@ -299,6 +304,24 @@ final class ConfigStore: Sendable {
         }
         events.emit(.ready(reason))
         logger.debug("Received config state from the server, the client is ready")
+    }
+
+    private func contextToConnectWith(
+        _ suppliedContext: ConfigDirectorContext?,
+        reason: ConnectReason
+    ) -> ConfigDirectorContext? {
+        switch ContextAdmission(of: suppliedContext) {
+        case let .admitted(context):
+            return context
+        case let .ignoredForAnInvalidContextKind(contextKindSample):
+            logger.error("""
+            Ignored the context supplied for \(reason) because its context kind '\(contextKindSample)' is \
+            invalid, so configs are evaluated as if no context was supplied. A context kind has 1 to 64 \
+            characters: lowercase ASCII letters, digits, '-' and '_'.
+            """)
+            telemetry.recordInvalidContextSubmission(contextKindSample: contextKindSample)
+            return nil
+        }
     }
 
     private func resumeReadyWaiter(_ id: UUID) {

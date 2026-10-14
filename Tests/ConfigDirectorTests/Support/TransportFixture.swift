@@ -74,6 +74,7 @@ extension Transport {
 struct SentPayload: Decodable, Sendable {
     struct Context: Decodable, Sendable {
         var id: String?
+        var kind: String?
         var name: String?
         var anonymous: Bool?
     }
@@ -97,6 +98,11 @@ struct SentPayload: Decodable, Sendable {
 extension StubURLProtocol.RecordedRequest {
     var payload: SentPayload? {
         body.flatMap { try? JSONDecoder().decode(SentPayload.self, from: Data($0.utf8)) }
+    }
+
+    var givenContextFieldNames: Set<String>? {
+        let fields = body.flatMap { try? JSONSerialization.jsonObject(with: Data($0.utf8)) as? [String: Any] }
+        return (fields?["givenContext"] as? [String: Any]).map { Set($0.keys) }
     }
 }
 

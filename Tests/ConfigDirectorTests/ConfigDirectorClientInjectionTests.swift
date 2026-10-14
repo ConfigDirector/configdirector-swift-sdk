@@ -52,6 +52,8 @@ struct ConfigDirectorClientInjectionTests {
             events.withLock { $0.append(event) }
         }
 
+        func recordInvalidContextSubmission(contextKindSample _: String) {}
+
         func updateContext(_: ConfigDirectorContext?) {}
 
         func flush() async {}

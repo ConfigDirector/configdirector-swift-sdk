@@ -47,7 +47,11 @@ struct EventReporterTests {
         #expect(StubURLProtocol.recorded(for: url).count == 1)
     }
 
-    private func makeReport(events: Int = 1, droppedCount: Int = 0) -> EventReport {
+    private func makeReport(
+        events: Int = 1,
+        droppedCount: Int = 0,
+        invalidContextSubmissions: [AggregatedEvent<InvalidContextSubmission>] = []
+    ) -> EventReport {
         let event = EvaluatedConfigEvent(
             contextID: "user-1",
             key: "dark-mode",
@@ -66,6 +70,7 @@ struct EventReporterTests {
                 events: Array(repeating: event, count: events),
                 droppedCount: droppedCount
             ),
+            invalidContextSubmissions: invalidContextSubmissions,
             context: ConfigDirectorContext(id: "user-1")
         )
     }
@@ -102,6 +107,51 @@ struct EventReporterTests {
         let report = try JSONDecoder().decode(TelemetryReport.self, from: Data(body.utf8))
         #expect(report.droppedEvents.evaluatedConfig == 7)
         #expect(report.aggregatedEvents.evaluatedConfig.isEmpty)
+    }
+
+    @Test func postsAReportHoldingOnlyInvalidContextSubmissions() async throws {
+        let fixture = makeFixture()
+        fixture.enqueue(202)
+        let report = makeReport(events: 0, invalidContextSubmissions: [AggregatedEvent(
+            startTime: Date(timeIntervalSince1970: 0),
+            endTime: Date(timeIntervalSince1970: 1),
+            count: 4,
+            event: .sampled(contextKindSample: "Tenant")
+        )])
+
+        #expect(await fixture.reporter.report(report) == .succeeded)
+
+        let body = try #require(fixture.requests.first?.body)
+        let sent = try JSONDecoder().decode(TelemetryReport.self, from: Data(body.utf8))
+        let submission = try #require(sent.aggregatedEvents.invalidContext.first)
+        #expect(sent.aggregatedEvents.invalidContext.count == 1)
+        #expect(sent.aggregatedEvents.evaluatedConfig.isEmpty)
+        #expect(submission.startTime == "1970-01-01T00:00:00.000Z")
+        #expect(submission.endTime == "1970-01-01T00:00:01.000Z")
+        #expect(submission.count == 4)
+        #expect(submission.event.reason == "invalid-context-kind")
+        #expect(submission.event.kindSample == "Tenant")
+    }
+
+    @Test func sendsSubmissionsBeyondTheSampleLimitWithoutAContextKindSample() async throws {
+        let fixture = makeFixture()
+        fixture.enqueue(202)
+        let report = makeReport(events: 0, invalidContextSubmissions: [AggregatedEvent(
+            startTime: Date(timeIntervalSince1970: 0),
+            endTime: Date(timeIntervalSince1970: 1),
+            count: 3,
+            event: .beyondContextKindSampleLimit
+        )])
+
+        _ = await fixture.reporter.report(report)
+
+        let body = try #require(fixture.requests.first?.body)
+        let fields = try #require(JSONSerialization.jsonObject(with: Data(body.utf8)) as? [String: Any])
+        let aggregatedEvents = try #require(fields["aggregatedEvents"] as? [String: Any])
+        let submission = try #require((aggregatedEvents["invalidContext"] as? [[String: Any]])?.first)
+        let event = try #require(submission["event"] as? [String: Any])
+        #expect(submission["count"] as? Int == 3)
+        #expect(Set(event.keys) == ["reason"])
     }
 
     @Test func sendsNothingWhenThereIsNothingToReport() async {

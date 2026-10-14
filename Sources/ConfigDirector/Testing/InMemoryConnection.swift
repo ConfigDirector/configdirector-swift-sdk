@@ -355,6 +355,8 @@ private struct NoLifecycleObserver: AppLifecycleObserver {
 private struct DiscardingTelemetry: TelemetryClient {
     func evaluatedConfig(_: EvaluatedConfigEvent) {}
 
+    func recordInvalidContextSubmission(contextKindSample _: String) {}
+
     func updateContext(_: ConfigDirectorContext?) {}
 
     func flush() async {}

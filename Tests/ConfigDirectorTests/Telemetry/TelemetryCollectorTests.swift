@@ -151,4 +151,67 @@ struct TelemetryCollectorTests {
 
         #expect(collector.pendingEventCount == 0, "events piled up with nothing left to report them")
     }
+
+    @Test func keepsAtMost20ContextKindSamplesAndCountsTheRestWithoutASample() async {
+        let reporter = RecordingReporter()
+        let collector = makeCollector(reporter, flushInterval: 60)
+        defer { collector.close() }
+
+        for index in 0 ..< 23 {
+            collector.recordInvalidContextSubmission(contextKindSample: "Tenant\(index)")
+        }
+        collector.recordInvalidContextSubmission(contextKindSample: "Tenant0")
+        await collector.flush()
+
+        let submissions = reporter.reports.flatMap(\.invalidContextSubmissions)
+        #expect(submissions.count == 21)
+        #expect(Set(submissions.map(\.event)) == [
+            .sampled(contextKindSample: "Tenant0"), .sampled(contextKindSample: "Tenant1"),
+            .sampled(contextKindSample: "Tenant2"), .sampled(contextKindSample: "Tenant3"),
+            .sampled(contextKindSample: "Tenant4"), .sampled(contextKindSample: "Tenant5"),
+            .sampled(contextKindSample: "Tenant6"), .sampled(contextKindSample: "Tenant7"),
+            .sampled(contextKindSample: "Tenant8"), .sampled(contextKindSample: "Tenant9"),
+            .sampled(contextKindSample: "Tenant10"), .sampled(contextKindSample: "Tenant11"),
+            .sampled(contextKindSample: "Tenant12"), .sampled(contextKindSample: "Tenant13"),
+            .sampled(contextKindSample: "Tenant14"), .sampled(contextKindSample: "Tenant15"),
+            .sampled(contextKindSample: "Tenant16"), .sampled(contextKindSample: "Tenant17"),
+            .sampled(contextKindSample: "Tenant18"), .sampled(contextKindSample: "Tenant19"),
+            .beyondContextKindSampleLimit,
+        ])
+        #expect(submissions.first { $0.event == .sampled(contextKindSample: "Tenant0") }?.count == 2)
+        #expect(submissions.first { $0.event == .beyondContextKindSampleLimit }?.count == 3)
+    }
+
+    @Test func startsSamplingContextKindsAfreshAfterEachReport() async {
+        let reporter = RecordingReporter()
+        let collector = makeCollector(reporter, flushInterval: 60)
+        defer { collector.close() }
+        for index in 0 ..< 21 {
+            collector.recordInvalidContextSubmission(contextKindSample: "Tenant\(index)")
+        }
+        await collector.flush()
+
+        collector.recordInvalidContextSubmission(contextKindSample: "Tenant20")
+        await collector.flush()
+
+        let secondReport = reporter.reports.last?.invalidContextSubmissions
+        #expect(reporter.reports.count == 2)
+        #expect(secondReport?.count == 1)
+        #expect(secondReport?.first?.event == .sampled(contextKindSample: "Tenant20"))
+        #expect(secondReport?.first?.count == 1)
+    }
+
+    @Test func collectsNoInvalidContextSubmissionsAfterAFatalReport() async {
+        let reporter = RecordingReporter()
+        reporter.failFatally()
+        let collector = makeCollector(reporter)
+        defer { collector.close() }
+        collector.evaluatedConfig(makeEvent())
+        #expect(await waitUntil { reporter.reports.count == 1 })
+
+        collector.recordInvalidContextSubmission(contextKindSample: "Tenant")
+        await collector.flush()
+
+        #expect(reporter.reports.count == 1)
+    }
 }

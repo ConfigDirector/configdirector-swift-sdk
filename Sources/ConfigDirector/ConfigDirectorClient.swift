@@ -133,7 +133,8 @@ public final class ConfigDirectorClient: Sendable {
         lifecycle.start { [weak self] phase in self?.handle(phase) }
     }
 
-    /// The context the client is currently evaluating configs against, or `nil` when there is none.
+    /// The context the client is currently evaluating configs against, or `nil` when there is none,
+    /// as after a context with an invalid ``ConfigDirectorContext/kind`` was ignored.
     ///
     /// This does not change the moment ``updateContext(_:)`` is called: configs are evaluated against
     /// the previous context until the underlying connection succeeds or times out.
@@ -197,6 +198,9 @@ public final class ConfigDirectorClient: Sendable {
     /// connect. If it fails with a persistent error, such as an invalid SDK key, the client stops
     /// trying and logs an error.
     ///
+    /// A context with an invalid ``ConfigDirectorContext/kind`` is ignored: the client logs an error
+    /// and connects as if no context was given.
+    ///
     /// - Parameter context: The current user's context, used to evaluate targeting rules.
     public func initialize(context: ConfigDirectorContext? = nil) async {
         connectionState.withLock { $0.isInitializing = true }
@@ -204,6 +208,9 @@ public final class ConfigDirectorClient: Sendable {
     }
 
     /// Updates the user's context and re-evaluates every config against it.
+    ///
+    /// A context with an invalid ``ConfigDirectorContext/kind`` is ignored: the client logs an error
+    /// and stops using the previous context, re-evaluating every config as if no context was given.
     public func updateContext(_ context: ConfigDirectorContext) async {
         await connect(context: context, reason: .contextUpdate)
     }
@@ -271,8 +278,7 @@ public final class ConfigDirectorClient: Sendable {
         store.markNotReady()
     }
 
-    /// Resumes a connection paused by ``pauseNetwork()``, reusing the last context given to
-    /// ``initialize(context:)`` or ``updateContext(_:)``.
+    /// Resumes a connection paused by ``pauseNetwork()``, reusing the current ``context``.
     public func resumeNetwork() async {
         await connect(context: store.context, reason: .networkResume)
     }
@@ -301,8 +307,8 @@ public final class ConfigDirectorClient: Sendable {
         await connectQueue.enqueue { [self] in await connectNow(context: context, reason: reason) }
     }
 
-    private func connectNow(context: ConfigDirectorContext?, reason: ConnectReason) async {
-        store.beginConnect(reason: reason, context: context)
+    private func connectNow(context suppliedContext: ConfigDirectorContext?, reason: ConnectReason) async {
+        let context = store.beginConnect(reason: reason, suppliedContext: suppliedContext)
         let startedAt = ProcessInfo.processInfo.systemUptime
 
         do {

@@ -2,7 +2,12 @@ import Foundation
 
 struct EventReport: Sendable {
     var snapshot: EventQueueSnapshot<EvaluatedConfigEvent>
+    var invalidContextSubmissions: [AggregatedEvent<InvalidContextSubmission>]
     var context: ConfigDirectorContext?
+
+    var isEmpty: Bool {
+        snapshot.isEmpty && invalidContextSubmissions.isEmpty
+    }
 }
 
 enum ReportOutcome: Sendable, Equatable {
@@ -54,6 +59,7 @@ final class HTTPEventReporter: EventReporter {
 
     func report(_ report: EventReport) async -> ReportOutcome {
         guard !state.withLock({ $0.isStopped }) else { return .failedFatally }
+        guard !report.isEmpty else { return .succeeded }
 
         let compacted = EventQueueSnapshot(
             startTime: report.snapshot.startTime,
@@ -63,15 +69,16 @@ final class HTTPEventReporter: EventReporter {
         )
         let aggregated = compacted.aggregated()
 
-        guard !aggregated.isEmpty || report.snapshot.droppedCount > 0 else { return .succeeded }
-
         let body: Data
         do {
             body = try JSONEncoder().encode(TelemetryPayload(
                 clientSDKKey: clientSDKKey,
                 metaContext: metaContext,
                 context: report.context,
-                aggregatedEvents: .init(evaluatedConfig: aggregated),
+                aggregatedEvents: .init(
+                    evaluatedConfig: aggregated,
+                    invalidContext: report.invalidContextSubmissions
+                ),
                 droppedEvents: .init(evaluatedConfig: report.snapshot.droppedCount)
             ))
         } catch {
@@ -124,6 +131,7 @@ final class HTTPEventReporter: EventReporter {
 private struct TelemetryPayload: Encodable {
     struct AggregatedEvents: Encodable {
         var evaluatedConfig: [AggregatedEvent<EvaluatedConfigEvent>]
+        var invalidContext: [AggregatedEvent<InvalidContextSubmission>]
     }
 
     struct DroppedEvents: Encodable {

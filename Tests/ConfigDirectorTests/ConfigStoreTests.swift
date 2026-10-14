@@ -11,6 +11,8 @@ private final class RecordingTelemetry: TelemetryClient {
 
     func evaluatedConfig(_: EvaluatedConfigEvent) {}
 
+    func recordInvalidContextSubmission(contextKindSample _: String) {}
+
     func updateContext(_ context: ConfigDirectorContext?) {
         contexts.withLock { $0.append(context) }
     }
@@ -89,7 +91,7 @@ struct ConfigStoreTests {
 
     @Test func appliesThePendingContextBeforeReadyWhenConfigStateArrivesFirst() async {
         let context = ConfigDirectorContext(id: "user-1")
-        store.beginConnect(reason: .contextUpdate, context: context)
+        _ = store.beginConnect(reason: .contextUpdate, suppliedContext: context)
 
         store.handleConfigSet(ConfigSet(configs: [:]))
 
@@ -100,7 +102,7 @@ struct ConfigStoreTests {
 
     @Test func appliesThePendingContextOnlyOnceWhenTheTransportConnectsFirst() async {
         let context = ConfigDirectorContext(id: "user-1")
-        store.beginConnect(reason: .initialization, context: context)
+        _ = store.beginConnect(reason: .initialization, suppliedContext: context)
 
         store.applyPendingContext()
         store.handleConfigSet(ConfigSet(configs: [:]))
@@ -133,10 +135,13 @@ struct ConfigStoreTests {
 
     @Test func abandoningAConnectKeepsThePreviousContext() {
         let previous = ConfigDirectorContext(id: "previous")
-        store.beginConnect(reason: .initialization, context: previous)
+        _ = store.beginConnect(reason: .initialization, suppliedContext: previous)
         store.applyPendingContext()
 
-        store.beginConnect(reason: .contextUpdate, context: ConfigDirectorContext(id: "abandoned"))
+        _ = store.beginConnect(
+            reason: .contextUpdate,
+            suppliedContext: ConfigDirectorContext(id: "abandoned")
+        )
         store.abandonConnect()
         store.handleConfigSet(ConfigSet(configs: [:]))
 

@@ -101,6 +101,31 @@ extension EvaluatedConfigEvent: Encodable {
     }
 }
 
+enum InvalidContextSubmission: Hashable, Sendable {
+    case sampled(contextKindSample: String)
+    case beyondContextKindSampleLimit
+}
+
+extension InvalidContextSubmission: Encodable {
+    private static let invalidContextKindReason = "invalid-context-kind"
+
+    private enum CodingKeys: String, CodingKey {
+        case reason
+        case contextKindSample = "kindSample"
+    }
+
+    func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(Self.invalidContextKindReason, forKey: .reason)
+        switch self {
+        case let .sampled(contextKindSample):
+            try container.encode(contextKindSample, forKey: .contextKindSample)
+        case .beyondContextKindSampleLimit:
+            break
+        }
+    }
+}
+
 /// A group of identical events, reported once with the number of times it occurred.
 struct AggregatedEvent<Event: Sendable>: Sendable {
     var startTime: Date

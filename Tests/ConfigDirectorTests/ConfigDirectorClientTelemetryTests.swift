@@ -137,6 +137,24 @@ struct ConfigDirectorClientTelemetryTests {
         #expect(second.evaluations(of: "welcome-message").first?.event.contextId == "user-456")
     }
 
+    @Test func reportsTheContextKindOfTheContextEvaluationsWereMadeAgainst() async throws {
+        let fixture = ClientFixture()
+        fixture.serveStream(servedConfigSet)
+        let client = try fixture.makeClient()
+        defer { client.close() }
+        await client.initialize(context: ConfigDirectorContext(id: "device-42", kind: "device"))
+
+        _ = client.value(for: "dark-mode", default: false)
+
+        let hasReported = await waitUntil {
+            fixture.telemetryReports().contains { !$0.evaluations(of: "dark-mode").isEmpty }
+        }
+        #expect(hasReported)
+        let report = try #require(fixture.telemetryReports()
+            .first { !$0.evaluations(of: "dark-mode").isEmpty })
+        #expect(report.context?.kind == "device")
+    }
+
     @Test func reportsWhatIsLeftWhenTheAppEntersTheBackground() async throws {
         let fixture = ClientFixture()
         fixture.serveStream(servedConfigSet)
