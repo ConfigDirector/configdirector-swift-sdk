@@ -17,6 +17,11 @@ version can be tagged. See [Releasing](CONTRIBUTING.md#releasing).
   the app's own container: an uninstall discards it, and extensions do not share it. When it cannot
   be read or stored, the client uses one for this launch only and tells the server so.
 
+### Fixed
+
+- Building the SDK for watchOS with Xcode 27 no longer fails with "main actor-isolated default
+  value in a nonisolated context".
+
 ## [1.7.0] - 2026-10-01
 
 ### Added

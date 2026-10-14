@@ -1,8 +1,6 @@
 import Foundation
 
-#if canImport(WatchKit)
-    import WatchKit
-#elseif canImport(UIKit)
+#if canImport(UIKit) && !canImport(WatchKit)
     import UIKit
 #endif
 
@@ -21,8 +19,10 @@ protocol AppLifecycleObserver: Sendable {
 /// application being backgrounded.
 enum AppLifecycleNotifications {
     #if canImport(WatchKit)
-        static let background = WKApplication.didEnterBackgroundNotification
-        static let foreground = WKApplication.willEnterForegroundNotification
+        // Spelled out because WatchKit's typed names are isolated to the main actor: those on
+        // WKApplication in the watchOS 26 SDK, and those on WKExtension in the watchOS 27 SDK.
+        static let background = Notification.Name("WKApplicationDidEnterBackgroundNotification")
+        static let foreground = Notification.Name("WKApplicationWillEnterForegroundNotification")
     #elseif canImport(UIKit)
         static let background = UIApplication.didEnterBackgroundNotification
         static let foreground = UIApplication.willEnterForegroundNotification
