@@ -8,6 +8,8 @@ version can be tagged. See [Releasing](CONTRIBUTING.md#releasing).
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-10-14
+
 ### Added
 
 - A context can now carry a context kind, such as `device` or `organization`, passed as
