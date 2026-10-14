@@ -21,8 +21,8 @@ protocol AppLifecycleObserver: Sendable {
 /// application being backgrounded.
 enum AppLifecycleNotifications {
     #if canImport(WatchKit)
-        static let background = WKExtension.applicationDidEnterBackgroundNotification
-        static let foreground = WKExtension.applicationWillEnterForegroundNotification
+        static let background = WKApplication.didEnterBackgroundNotification
+        static let foreground = WKApplication.willEnterForegroundNotification
     #elseif canImport(UIKit)
         static let background = UIApplication.didEnterBackgroundNotification
         static let foreground = UIApplication.willEnterForegroundNotification
