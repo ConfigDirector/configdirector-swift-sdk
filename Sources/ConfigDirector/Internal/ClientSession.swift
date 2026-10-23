@@ -1,7 +1,5 @@
 import Foundation
 
-/// The client session this run of the SDK belongs to: the instance ID the server counts a session
-/// by, and whether it is `ephemeral`, meaning it could not be stored and identifies only this run.
 struct ClientSession: Sendable {
     var instanceID: String
     var ephemeral: Bool
@@ -35,29 +33,24 @@ private enum StoredInstanceID {
 
 extension ClientSession {
     private static let recordVersion = 1
-    private static let maximumAgeInMilliseconds: Int64 = 6 * 60 * 60 * 1000
     private static let uuidV4Pattern =
         "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
 
-    /// Reuses the stored instance ID while it is under six hours old, otherwise generates one and
-    /// stores it. An ID that could not be read back or stored is ephemeral.
     static func current(storage: any InstanceIDStorage, logger: any ConfigDirectorLogger) -> ClientSession {
-        let now = Int64(Date().timeIntervalSince1970 * 1000)
-        switch storedInstanceID(in: storage, now: now, logger: logger) {
+        switch storedInstanceID(in: storage, logger: logger) {
         case let .current(instanceID):
             return ClientSession(instanceID: instanceID, ephemeral: false)
         case .unreadable:
             return ClientSession(instanceID: UUID().uuidString, ephemeral: true)
         case .nothingUsable:
             let instanceID = UUID().uuidString
-            let stored = store(instanceID, createdAt: now, in: storage, logger: logger)
+            let stored = store(instanceID, in: storage, logger: logger)
             return ClientSession(instanceID: instanceID, ephemeral: !stored)
         }
     }
 
     private static func storedInstanceID(
         in storage: any InstanceIDStorage,
-        now: Int64,
         logger: any ConfigDirectorLogger
     ) -> StoredInstanceID {
         let storedJSON: String?
@@ -81,12 +74,6 @@ extension ClientSession {
             return .nothingUsable
         }
 
-        let age = now - record.createdAt
-        guard age >= 0, age < maximumAgeInMilliseconds else {
-            logger.debug("The stored instance ID has expired, generating a new one")
-            return .nothingUsable
-        }
-
         return .current(record.id)
     }
 
@@ -96,11 +83,14 @@ extension ClientSession {
 
     private static func store(
         _ instanceID: String,
-        createdAt: Int64,
         in storage: any InstanceIDStorage,
         logger: any ConfigDirectorLogger
     ) -> Bool {
-        let record = StoredInstanceIDRecord(version: recordVersion, id: instanceID, createdAt: createdAt)
+        let record = StoredInstanceIDRecord(
+            version: recordVersion,
+            id: instanceID,
+            createdAt: Int64(Date().timeIntervalSince1970 * 1000)
+        )
         let stored: Bool
         do {
             stored = try storage.write(String(decoding: JSONEncoder().encode(record), as: UTF8.self))
@@ -117,8 +107,8 @@ extension ClientSession {
 
     private static func couldNot(_ action: String) -> String {
         """
-        The ConfigDirector SDK could not \(action) its instance ID, so this app start counts as a new \
-        client session.
+        The ConfigDirector SDK could not \(action) its instance ID, so this app start looks like a new \
+        install to ConfigDirector.
         """
     }
 }

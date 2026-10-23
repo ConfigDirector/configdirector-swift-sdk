@@ -8,6 +8,13 @@ version can be tagged. See [Releasing](CONTRIBUTING.md#releasing).
 
 ## [Unreleased]
 
+### Changed
+
+- The instance ID the SDK stores in the app's `UserDefaults` now lasts for the life of the install,
+  instead of being replaced six hours after it was created, so a person using the app without a
+  context ID counts as one monthly active user a month. An instance ID stored by an earlier version
+  is kept.
+
 ## [1.8.0] - 2026-10-14
 
 ### Added

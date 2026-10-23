@@ -30,7 +30,7 @@ struct ClientSessionTests {
 
     private struct StorageFailure: Error {}
 
-    private static let sixHoursInMilliseconds: Int64 = 6 * 60 * 60 * 1000
+    private static let oneYearInMilliseconds: Int64 = 366 * 24 * 60 * 60 * 1000
     private static let storedID = "11111111-1111-4111-8111-111111111111"
     private static let uuidV4Pattern =
         "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
@@ -57,8 +57,8 @@ struct ClientSessionTests {
         instanceID.range(of: Self.uuidV4Pattern, options: [.regularExpression, .caseInsensitive]) != nil
     }
 
-    @Test func reusesTheStoredInstanceIDWhileItIsUnderSixHoursOld() throws {
-        let createdAt = now - Self.sixHoursInMilliseconds + 60000
+    @Test func reusesTheStoredInstanceIDWithoutRewritingItAYearAfterItWasGenerated() throws {
+        let createdAt = now - Self.oneYearInMilliseconds
         storage.record = try record(createdAt: createdAt)
 
         let session = ClientSession.current(storage: storage, logger: logger)
@@ -82,23 +82,14 @@ struct ClientSessionTests {
         #expect(try (before ... after).contains(storedRecord().createdAt))
     }
 
-    @Test func generatesAndStoresANewInstanceIDWhenTheStoredOneIsSixHoursOld() throws {
-        storage.record = try record(createdAt: now - Self.sixHoursInMilliseconds)
-
-        let session = ClientSession.current(storage: storage, logger: logger)
-
-        #expect(session.instanceID != Self.storedID)
-        #expect(session.ephemeral == false)
-        #expect(try storedRecord().id == session.instanceID)
-    }
-
-    @Test func generatesANewInstanceIDWhenTheStoredCreationTimeIsInTheFuture() throws {
+    @Test func reusesTheStoredInstanceIDWhenItsCreationTimeIsInTheFuture() throws {
         storage.record = try record(createdAt: now + 60000)
 
         let session = ClientSession.current(storage: storage, logger: logger)
 
-        #expect(session.instanceID != Self.storedID)
-        #expect(try storedRecord().id == session.instanceID)
+        #expect(session.instanceID == Self.storedID)
+        #expect(session.ephemeral == false)
+        #expect(storage.writes.isEmpty)
     }
 
     @Test func generatesANewInstanceIDWhenTheStoredCreationTimeIsNotPositive() throws {

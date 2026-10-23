@@ -1,8 +1,5 @@
 import Foundation
 
-/// Keeps the instance ID record in the app's own `UserDefaults`, which lives in the app container
-/// and goes away with an uninstall, so a session never outlives the install.
-///
 /// `UserDefaults` is documented as thread-safe but is not marked `Sendable`.
 struct UserDefaultsInstanceIDStorage: InstanceIDStorage, @unchecked Sendable {
     private static let key = "configdirector-sdk.instance-id"
