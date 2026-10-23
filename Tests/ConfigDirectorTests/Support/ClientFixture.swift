@@ -32,22 +32,27 @@ final class ClientFixture: Sendable {
     }
 
     func makeClient(
+        clientSDKKey: String = "sdk-key",
         mode: ConnectionMode = .streaming,
+        values: [String: ServedValue]? = nil,
         timeout: TimeInterval = 1,
         pollingInterval: TimeInterval? = nil,
+        baseURL: URL? = nil,
         pausesWhileBackgrounded: Bool = true,
         lifecycle: (any AppLifecycleObserver)? = nil,
         telemetryFlushInterval: TimeInterval = 0.05,
         logger: any ConfigDirectorLogger = ConsoleLogger(level: .off),
         identity: SDKIdentity = .swiftClientSDK,
-        clientSession: ClientSession = ClientSession(instanceID: "instance-1", ephemeral: false),
+        makeClientSession: ()
+            -> ClientSession = { ClientSession(instanceID: "instance-1", ephemeral: false) },
         makeTelemetry: @escaping TelemetryFactory = ConfigDirectorClient.makeTelemetry,
         makeTransport: @escaping TransportFactory = ConfigDirectorClient.makeTransport
     ) throws -> ConfigDirectorClient {
         var connection = ConnectionOptions(
             mode: mode,
+            values: values,
             timeout: timeout,
-            baseURL: baseURL,
+            baseURL: baseURL ?? self.baseURL,
             pausesWhileBackgrounded: pausesWhileBackgrounded
         )
         if let pollingInterval {
@@ -55,14 +60,14 @@ final class ClientFixture: Sendable {
         }
 
         return try ConfigDirectorClient(
-            clientSDKKey: "sdk-key",
+            clientSDKKey: clientSDKKey,
             options: ConfigDirectorClientOptions(
                 metadata: ConfigDirectorMetaContext(appName: "test-app", appVersion: "2.3.4"),
                 connection: connection,
                 logger: logger
             ),
             identity: identity,
-            clientSession: clientSession,
+            makeClientSession: makeClientSession,
             session: session,
             lifecycle: lifecycle ?? NotificationCenterLifecycleObserver(
                 center: notifications,

@@ -32,7 +32,7 @@ public func makeTestClient(
     logger: any ConfigDirectorLogger = ConsoleLogger()
 ) -> TestClient {
     TestClient(connection: InMemoryConnection(
-        values: values.mapValues(\.inMemoryValue),
+        values: values,
         timeout: timeout,
         logger: logger
     ))
@@ -73,7 +73,7 @@ public final class TestClient: Sendable {
     /// only `key`: `values(for:)` streams of `key` yield it, `configsUpdated` lists it, and reads
     /// return it. A blank key or a number that is not finite is a programming error and traps.
     public func setValue(_ value: TestValue, for key: String) {
-        connection.setValue(value.inMemoryValue, for: key)
+        connection.setValue(value, for: key)
     }
 
     /// Removes the value under `key` and, once the client is connected, delivers a full update
@@ -88,7 +88,7 @@ public final class TestClient: Sendable {
     /// client is connected, delivers a full update. Use it to reset a test client shared across
     /// tests.
     public func replaceValues(_ values: [String: TestValue]) {
-        connection.replaceValues(values.mapValues(\.inMemoryValue))
+        connection.replaceValues(values)
     }
 
     /// Makes the next `initialize` wait, not ready, until ``completeInitialization()`` or

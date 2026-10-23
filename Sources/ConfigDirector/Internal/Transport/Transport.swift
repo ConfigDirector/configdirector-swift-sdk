@@ -3,7 +3,7 @@ import Foundation
 typealias ConfigSetHandler = @Sendable (ConfigSet) -> Void
 
 typealias TransportFactory = @Sendable (
-    ConnectionMode,
+    LiveConnectionMode,
     TransportOptions,
     @escaping ConfigSetHandler
 ) -> any Transport

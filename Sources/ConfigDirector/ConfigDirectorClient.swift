@@ -28,6 +28,7 @@ public final class ConfigDirectorClient: Sendable {
     private let transport: any Transport
     private let telemetry: any TelemetryClient
     private let lifecycle: any AppLifecycleObserver
+    private let networkControl: NetworkControl
     private let connectionState = Locked(ConnectionState())
     private let connectQueue = SerialAsyncQueue()
 
@@ -36,14 +37,36 @@ public final class ConfigDirectorClient: Sendable {
     /// The client cannot serve config values until ``initialize(context:)`` completes. Until then,
     /// every config evaluates to its default value.
     ///
-    /// - Throws: ``ConfigDirectorError/missingClientSDKKey`` when the key is blank, and
-    ///   ``ConfigDirectorError/invalidBaseURL(_:)`` when ``ConnectionOptions/baseURL`` is not
-    ///   absolute.
+    /// - Throws: ``ConfigDirectorError/missingClientSDKKey`` when the key is blank outside
+    ///   ``ConnectionMode/offline`` mode, ``ConfigDirectorError/invalidBaseURL(_:)`` when
+    ///   ``ConnectionOptions/baseURL`` is not absolute, ``ConfigDirectorError/valuesRequireOfflineMode``
+    ///   when ``ConnectionOptions/values`` is given outside offline mode, and
+    ///   ``ConfigDirectorError/invalidOfflineValue(key:)`` when one of those values cannot be served.
     public convenience init(
         clientSDKKey: String,
         options: ConfigDirectorClientOptions = ConfigDirectorClientOptions()
     ) throws(ConfigDirectorError) {
         try self.init(clientSDKKey: clientSDKKey, options: options, identity: .swiftClientSDK)
+    }
+
+    /// Creates a client in ``ConnectionMode/offline`` mode, which needs no client SDK key.
+    ///
+    /// - Throws: ``ConfigDirectorError/missingClientSDKKey`` when ``ConnectionOptions/mode`` is not
+    ///   ``ConnectionMode/offline``, and ``ConfigDirectorError/invalidOfflineValue(key:)`` when a
+    ///   value in ``ConnectionOptions/values`` cannot be served.
+    public convenience init(options: ConfigDirectorClientOptions) throws(ConfigDirectorError) {
+        try self.init(clientSDKKey: "", options: options, identity: .swiftClientSDK)
+    }
+
+    /// Creates a client in ``ConnectionMode/offline`` mode on behalf of a wrapper SDK identified by
+    /// `identity`. Otherwise identical to ``init(options:)``; an offline client sends nothing, so the
+    /// identity is never reported.
+    @_spi(ConfigDirectorWrapper)
+    public convenience init(
+        options: ConfigDirectorClientOptions,
+        identity: SDKIdentity
+    ) throws(ConfigDirectorError) {
+        try self.init(clientSDKKey: "", options: options, identity: identity)
     }
 
     /// Creates a client that reports `identity` to the server instead of this SDK's own name and
@@ -58,10 +81,9 @@ public final class ConfigDirectorClient: Sendable {
             clientSDKKey: clientSDKKey,
             options: options,
             identity: identity,
-            clientSession: ClientSession.current(
-                storage: UserDefaultsInstanceIDStorage(),
-                logger: options.logger
-            ),
+            makeClientSession: {
+                ClientSession.current(storage: UserDefaultsInstanceIDStorage(), logger: options.logger)
+            },
             session: URLSession(configuration: .default),
             lifecycle: NotificationCenterLifecycleObserver(),
             telemetryOptions: TelemetryOptions(),
@@ -74,63 +96,40 @@ public final class ConfigDirectorClient: Sendable {
         clientSDKKey: String,
         options: ConfigDirectorClientOptions,
         identity: SDKIdentity,
-        clientSession: ClientSession,
+        makeClientSession: () -> ClientSession,
         session: URLSession,
         lifecycle: any AppLifecycleObserver,
         telemetryOptions: TelemetryOptions,
         makeTelemetry: TelemetryFactory,
         makeTransport: TransportFactory
     ) throws(ConfigDirectorError) {
-        guard !clientSDKKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            throw ConfigDirectorError.missingClientSDKKey
-        }
-
-        let baseURL = try Self.resolveBaseURL(options.connection.baseURL)
-        if baseURL.scheme?.lowercased() != "https" {
-            options.logger.warn("""
-            The base URL '\(baseURL)' is not HTTPS. The client SDK key, every context you send, and \
-            every config value served back travel in plain text.
-            """)
-        }
-
-        let telemetry = makeTelemetry(
-            HTTPEventReporter(
-                clientSDKKey: clientSDKKey,
-                baseURL: baseURL,
-                metaContext: AppInfo.metaContext(metadata: options.metadata, identity: identity),
-                logger: options.logger,
-                session: session
-            ),
-            options.logger,
-            telemetryOptions
+        let plan = try ConnectionPlan.decide(
+            clientSDKKey: clientSDKKey,
+            connection: options.connection,
+            logger: options.logger
         )
-        let store = ConfigStore(logger: options.logger, telemetry: telemetry)
+        let components = ClientComponents(
+            plan: plan,
+            options: options,
+            identity: identity,
+            makeClientSession: makeClientSession,
+            session: session,
+            lifecycle: lifecycle,
+            telemetryOptions: telemetryOptions,
+            makeTelemetry: makeTelemetry,
+            makeTransport: makeTransport
+        )
 
         logger = options.logger
         timeout = options.connection.timeout
-        self.store = store
-        self.telemetry = telemetry
-        transport = makeTransport(
-            options.connection.mode,
-            TransportOptions(
-                clientSDKKey: clientSDKKey,
-                baseURL: baseURL,
-                metaContext: AppInfo.metaContext(metadata: options.metadata, identity: identity),
-                clientSession: clientSession,
-                logger: options.logger,
-                pollingInterval: Self.resolvePollingInterval(
-                    options.connection.pollingInterval,
-                    mode: options.connection.mode,
-                    logger: options.logger
-                ),
-                session: session
-            ),
-            { [store] configSet in store.handleConfigSet(configSet) }
-        )
-        self.lifecycle = lifecycle
         pausesWhileBackgrounded = options.connection.pausesWhileBackgrounded
+        networkControl = plan.networkControl
+        store = components.store
+        telemetry = components.telemetry
+        transport = components.transport
+        self.lifecycle = components.lifecycle
 
-        lifecycle.start { [weak self] phase in self?.handle(phase) }
+        self.lifecycle.start { [weak self] phase in self?.handle(phase) }
     }
 
     /// The context the client is currently evaluating configs against, or `nil` when there is none,
@@ -143,7 +142,7 @@ public final class ConfigDirectorClient: Sendable {
     }
 
     /// Whether the client is ready, meaning the connection to the server succeeded and config state
-    /// was received.
+    /// was received, or, in ``ConnectionMode/offline`` mode, the values were loaded.
     public var isReady: Bool {
         store.isReady
     }
@@ -201,6 +200,9 @@ public final class ConfigDirectorClient: Sendable {
     /// A context with an invalid ``ConfigDirectorContext/kind`` is ignored: the client logs an error
     /// and connects as if no context was given.
     ///
+    /// In ``ConnectionMode/offline`` mode nothing is connected: the client is ready, serving
+    /// ``ConnectionOptions/values``, before this returns.
+    ///
     /// - Parameter context: The current user's context, used to evaluate targeting rules.
     public func initialize(context: ConfigDirectorContext? = nil) async {
         connectionState.withLock { $0.isInitializing = true }
@@ -211,6 +213,8 @@ public final class ConfigDirectorClient: Sendable {
     ///
     /// A context with an invalid ``ConfigDirectorContext/kind`` is ignored: the client logs an error
     /// and stops using the previous context, re-evaluating every config as if no context was given.
+    ///
+    /// In ``ConnectionMode/offline`` mode the new context takes effect at once and no value changes.
     public func updateContext(_ context: ConfigDirectorContext) async {
         await connect(context: context, reason: .contextUpdate)
     }
@@ -271,16 +275,28 @@ public final class ConfigDirectorClient: Sendable {
     }
 
     /// Pauses the network connection without discarding config state, event streams, or watch
-    /// streams. Call ``resumeNetwork()`` to re-establish the connection.
+    /// streams. Call ``resumeNetwork()`` to re-establish the connection. It does nothing in
+    /// ``ConnectionMode/offline`` mode.
     public func pauseNetwork() {
-        logger.debug("pauseNetwork() called, pausing the transport connection")
-        transport.disconnect()
-        store.markNotReady()
+        switch networkControl {
+        case .pausesAndResumesTheTransport:
+            logger.debug("pauseNetwork() called, pausing the transport connection")
+            transport.disconnect()
+            store.markNotReady()
+        case .doesNothing:
+            break
+        }
     }
 
-    /// Resumes a connection paused by ``pauseNetwork()``, reusing the current ``context``.
+    /// Resumes a connection paused by ``pauseNetwork()``, reusing the current ``context``. It does
+    /// nothing in ``ConnectionMode/offline`` mode.
     public func resumeNetwork() async {
-        await connect(context: store.context, reason: .networkResume)
+        switch networkControl {
+        case .pausesAndResumesTheTransport:
+            await connect(context: store.context, reason: .networkResume)
+        case .doesNothing:
+            break
+        }
     }
 
     /// Closes the connection, every watch stream, and every event stream.
@@ -368,31 +384,5 @@ public final class ConfigDirectorClient: Sendable {
             logger.info("The app returned to the foreground, resuming the connection to the server")
             Task { await resumeNetwork() }
         }
-    }
-
-    private static func resolvePollingInterval(
-        _ configuredInterval: TimeInterval,
-        mode: ConnectionMode,
-        logger: any ConfigDirectorLogger
-    ) -> TimeInterval {
-        guard mode == .polling else { return configuredInterval }
-        let minimumInterval = ConnectionOptions.minimumPollingInterval
-        if configuredInterval >= minimumInterval {
-            return configuredInterval
-        }
-
-        logger.warn("""
-        pollingInterval of \(configuredInterval) seconds is below the minimum of \(minimumInterval) \
-        seconds. Using \(minimumInterval) seconds.
-        """)
-        return minimumInterval
-    }
-
-    private static func resolveBaseURL(_ baseURL: URL?) throws(ConfigDirectorError) -> URL {
-        guard let baseURL else { return Constants.clientBaseURL }
-        guard baseURL.scheme != nil, baseURL.host != nil else {
-            throw ConfigDirectorError.invalidBaseURL(baseURL)
-        }
-        return baseURL
     }
 }

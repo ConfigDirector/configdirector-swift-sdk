@@ -1,16 +1,21 @@
 import Foundation
 
-package enum InMemoryValue: Sendable, Equatable {
-    case boolean(Bool)
-    case integer(Int)
-    case float(Double)
-    case string(String)
-    case object([String: InMemoryValue])
-    case array([InMemoryValue])
-}
+extension ServedValue {
+    static func configStates(
+        _ values: [String: ServedValue]
+    ) throws(ConfigDirectorError) -> [String: ConfigState] {
+        var configs: [String: ConfigState] = [:]
+        for (key, value) in values {
+            configs[key] = try value.configState(key: key)
+        }
+        return configs
+    }
 
-extension InMemoryValue {
-    func configState(key: String) -> ConfigState {
+    func configState(key: String) throws(ConfigDirectorError) -> ConfigState {
+        guard !key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, holdsOnlyFiniteNumbers else {
+            throw ConfigDirectorError.invalidOfflineValue(key: key)
+        }
+
         let (type, text) = encoded
         return ConfigState(
             id: UUID().uuidString,
@@ -19,6 +24,15 @@ extension InMemoryValue {
             value: text,
             valueID: ValueID.make(for: text)
         )
+    }
+
+    private var holdsOnlyFiniteNumbers: Bool {
+        switch self {
+        case let .float(value): value.isFinite
+        case let .object(members): members.values.allSatisfy(\.holdsOnlyFiniteNumbers)
+        case let .array(elements): elements.allSatisfy(\.holdsOnlyFiniteNumbers)
+        case .boolean, .integer, .string: true
+        }
     }
 
     private var encoded: (ConfigType, String) {
@@ -91,9 +105,8 @@ extension InMemoryValue {
         text += "\""
     }
 
-    /// Swift writes large and small doubles with an exponent; ConfigDirector serves plain decimals.
-    static func plainDecimal(_ value: Double) -> String {
-        precondition(value.isFinite, "A test value must be a finite number, not \(value).")
+    private static func plainDecimal(_ value: Double) -> String {
+        precondition(value.isFinite, "A served value must be a finite number, not \(value).")
         let text = "\(value)"
         guard let exponentMarker = text.firstIndex(where: { $0 == "e" || $0 == "E" }) else { return text }
 

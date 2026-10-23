@@ -97,7 +97,7 @@ struct ConfigDirectorClientInjectionTests {
         let fixture = ClientFixture()
         fixture.serveStream(servedConfigSet)
         let client = try fixture.makeClient(
-            clientSession: ClientSession(instanceID: "instance-2", ephemeral: true)
+            makeClientSession: { ClientSession(instanceID: "instance-2", ephemeral: true) }
         )
         defer { client.close() }
 

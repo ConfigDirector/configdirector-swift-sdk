@@ -10,6 +10,12 @@ public enum ConnectionMode: Sendable {
     /// seconds: 60 by default, and never less than 30. A value below the minimum is raised to the
     /// minimum and a warning is logged.
     case polling
+
+    /// Never connects to the ConfigDirector server. The client serves the values given in
+    /// ``ConnectionOptions/values`` to every context, or every config's in-code default value when
+    /// none are given, is ready as soon as ``ConfigDirectorClient/initialize(context:)`` is called,
+    /// and sends nothing, so the app is invisible to the ConfigDirector dashboard.
+    case offline
 }
 
 /// How the client connects to the ConfigDirector server.
@@ -21,6 +27,12 @@ public struct ConnectionOptions: Sendable {
 
     /// The connection mode to use.
     public var mode: ConnectionMode
+
+    /// The values to serve in ``ConnectionMode/offline`` mode, one per config key, to every context.
+    /// Leaving it `nil` in offline mode serves every config's in-code default value. It can be given
+    /// only in offline mode: creating a client with values in another mode throws
+    /// ``ConfigDirectorError/valuesRequireOfflineMode``.
+    public var values: [String: ServedValue]?
 
     /// How often, in seconds, to re-fetch config state when ``mode`` is ``ConnectionMode/polling``.
     /// Defaults to ``defaultPollingInterval``, 60 seconds; the minimum is 30 seconds. A value below
@@ -49,12 +61,14 @@ public struct ConnectionOptions: Sendable {
 
     public init(
         mode: ConnectionMode = .streaming,
+        values: [String: ServedValue]? = nil,
         pollingInterval: TimeInterval = Self.defaultPollingInterval,
         timeout: TimeInterval = 3,
         baseURL: URL? = nil,
         pausesWhileBackgrounded: Bool = true
     ) {
         self.mode = mode
+        self.values = values
         self.pollingInterval = pollingInterval
         self.timeout = timeout
         self.baseURL = baseURL

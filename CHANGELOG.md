@@ -8,8 +8,29 @@ version can be tagged. See [Releasing](CONTRIBUTING.md#releasing).
 
 ## [Unreleased]
 
+### Added
+
+- Offline mode: `ConnectionOptions(mode: .offline, values: ["new-checkout": true, "max-items": 20])`
+  serves the given values to every context without connecting to ConfigDirector. The client is
+  ready as soon as `initialize` is called, with `ready(.initialization)` published once, and sends
+  nothing, so the app is invisible to the dashboard. With no `values`, every config returns its
+  in-code default value with the `configStateMissing` reason. `updateContext` takes the new context
+  at once and changes no value, `pauseNetwork` and `resumeNetwork` do nothing, and `pollingInterval`,
+  `timeout`, `baseURL` and `pausesWhileBackgrounded` have no effect.
+- `ServedValue`, the type of an offline value, in the `ConfigDirector` product: a boolean, integer,
+  float, string, object or array, usually written as a literal.
+- `ConfigDirectorClient(options:)` creates an offline client without a client SDK key; a blank key
+  passed to `init(clientSDKKey:options:)` is accepted in offline mode too. Outside offline mode both
+  still throw `missingClientSDKKey`.
+- `ConfigDirectorError.valuesRequireOfflineMode`, thrown when `values` is given in `.streaming` or
+  `.polling` mode, and `ConfigDirectorError.invalidOfflineValue(key:)`, thrown for a blank key or a
+  number that is not finite, both when the client is created, so a test run with a wrong value fails
+  instead of running on in-code default values.
+
 ### Changed
 
+- `TestValue` in `ConfigDirectorTesting` is now a typealias of `ServedValue`. Existing tests compile
+  unchanged.
 - The instance ID the SDK stores in the app's `UserDefaults` now lasts for the life of the install,
   instead of being replaced six hours after it was created, so a person using the app without a
   context ID counts as one monthly active user a month. An instance ID stored by an earlier version

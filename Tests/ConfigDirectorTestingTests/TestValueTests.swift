@@ -21,14 +21,3 @@ struct TestValueTests {
         #expect(values["tags"] == .array([.string("x"), .string("y")]))
     }
 }
-
-struct TestValueConversionTests {
-    @Test func eachCaseKeepsItsKindOnTheWayToTheConnection() {
-        #expect(TestValue.boolean(true).inMemoryValue == .boolean(true))
-        #expect(TestValue.integer(20).inMemoryValue == .integer(20))
-        #expect(TestValue.float(2.5).inMemoryValue == .float(2.5))
-        #expect(TestValue.string("Ada").inMemoryValue == .string("Ada"))
-        #expect(TestValue.object(["limit": 3]).inMemoryValue == .object(["limit": .integer(3)]))
-        #expect(TestValue.array([true, "x"]).inMemoryValue == .array([.boolean(true), .string("x")]))
-    }
-}

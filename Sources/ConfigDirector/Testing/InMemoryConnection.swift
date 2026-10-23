@@ -5,7 +5,7 @@ package final class InMemoryConnection: Sendable {
 
     private let transport: InMemoryTransport
 
-    package init(values: [String: InMemoryValue], timeout: TimeInterval, logger: any ConfigDirectorLogger) {
+    package init(values: [String: ServedValue], timeout: TimeInterval, logger: any ConfigDirectorLogger) {
         let transport = InMemoryTransport(configs: InMemoryTransport.encode(values))
         self.transport = transport
         do {
@@ -17,7 +17,7 @@ package final class InMemoryConnection: Sendable {
                     logger: logger
                 ),
                 identity: .swiftClientSDK,
-                clientSession: ClientSession(instanceID: UUID().uuidString, ephemeral: true),
+                makeClientSession: { ClientSession(instanceID: UUID().uuidString, ephemeral: true) },
                 session: RecordingURLProtocol.makeSession(),
                 lifecycle: NoLifecycleObserver(),
                 telemetryOptions: TelemetryOptions(),
@@ -44,7 +44,7 @@ package final class InMemoryConnection: Sendable {
         RecordingURLProtocol.requestCount
     }
 
-    package func setValue(_ value: InMemoryValue, for key: String) {
+    package func setValue(_ value: ServedValue, for key: String) {
         transport.setValue(value, for: key)
     }
 
@@ -52,7 +52,7 @@ package final class InMemoryConnection: Sendable {
         transport.removeValue(for: key)
     }
 
-    package func replaceValues(_ values: [String: InMemoryValue]) {
+    package func replaceValues(_ values: [String: ServedValue]) {
         transport.replaceValues(values)
     }
 
@@ -139,16 +139,20 @@ private final class InMemoryTransport: Transport {
         state = Locked(State(configs: configs))
     }
 
-    static func encode(_ values: [String: InMemoryValue]) -> [String: ConfigState] {
-        Dictionary(uniqueKeysWithValues: values.map { key, value in (key, encode(value, for: key)) })
+    static func encode(_ values: [String: ServedValue]) -> [String: ConfigState] {
+        do {
+            return try ServedValue.configStates(values)
+        } catch {
+            preconditionFailure(error.localizedDescription)
+        }
     }
 
-    private static func encode(_ value: InMemoryValue, for key: String) -> ConfigState {
-        precondition(
-            !key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-            "A config key must not be blank."
-        )
-        return value.configState(key: key)
+    private static func encode(_ value: ServedValue, for key: String) -> ConfigState {
+        do {
+            return try value.configState(key: key)
+        } catch {
+            preconditionFailure(error.localizedDescription)
+        }
     }
 
     func attach(_ onConfigSet: @escaping ConfigSetHandler) {
@@ -163,7 +167,7 @@ private final class InMemoryTransport: Transport {
         state.withLock { $0.initialization.held != nil || $0.contextUpdate.held != nil }
     }
 
-    func setValue(_ value: InMemoryValue, for key: String) {
+    func setValue(_ value: ServedValue, for key: String) {
         let configState = Self.encode(value, for: key)
         state.withLock { state in
             state.configs[key] = configState
@@ -184,7 +188,7 @@ private final class InMemoryTransport: Transport {
         drain()
     }
 
-    func replaceValues(_ values: [String: InMemoryValue]) {
+    func replaceValues(_ values: [String: ServedValue]) {
         let configs = Self.encode(values)
         state.withLock { state in
             state.configs = configs
@@ -344,22 +348,4 @@ private final class InMemoryTransport: Transport {
             statusCode: fatalStatus
         )
     }
-}
-
-private struct NoLifecycleObserver: AppLifecycleObserver {
-    func start(onChange _: @escaping @Sendable (AppLifecyclePhase) -> Void) {}
-
-    func stop() {}
-}
-
-private struct DiscardingTelemetry: TelemetryClient {
-    func evaluatedConfig(_: EvaluatedConfigEvent) {}
-
-    func recordInvalidContextSubmission(contextKindSample _: String) {}
-
-    func updateContext(_: ConfigDirectorContext?) {}
-
-    func flush() async {}
-
-    func close() {}
 }

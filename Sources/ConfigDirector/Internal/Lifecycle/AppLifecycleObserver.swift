@@ -78,3 +78,9 @@ final class NotificationCenterLifecycleObserver: AppLifecycleObserver {
         center.addObserver(forName: name, object: nil, queue: nil) { _ in onChange(phase) }
     }
 }
+
+struct NoLifecycleObserver: AppLifecycleObserver {
+    func start(onChange _: @escaping @Sendable (AppLifecyclePhase) -> Void) {}
+
+    func stop() {}
+}

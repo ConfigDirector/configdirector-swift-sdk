@@ -16,8 +16,8 @@ brew install swiftlint swiftformat
 `ConfigDirector` is the SDK. `ConfigDirectorTesting` is the testing tools: the SDK's real client
 over an in-memory connection a test controls, wrapped in the test client API a consumer's tests
 use. The connection itself lives in the `ConfigDirector` target as `package` types, because it
-implements the SDK's internal transport and telemetry protocols; the testing product only converts
-`TestValue`s and forwards the controls. Only test targets link it, and both products always ship
+implements the SDK's internal transport and telemetry protocols; the testing product only names
+`ServedValue` as `TestValue` and forwards the controls. Only test targets link it, and both products always ship
 together, since they are one package. Its conformance tests live in `ConfigDirectorTestingTests`
 and reach the `package` symbols with a plain `import`.
 
