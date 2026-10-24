@@ -21,6 +21,11 @@ public enum ClientEvent: Sendable {
     /// full update no longer contained.
     case configsUpdated(ConfigsUpdate)
 
+    /// The values kept on the device from an earlier launch were loaded and are served until live
+    /// values arrive. It is followed by ``configsUpdated(_:)`` with their keys. The client is not
+    /// ready: ``ready(_:)`` is published when live values arrive and replace them.
+    case cachedValuesLoaded
+
     /// A new context has taken effect. It is `nil` when there is none, including after a context with
     /// an invalid context kind was ignored.
     case contextUpdated(ConfigDirectorContext?)

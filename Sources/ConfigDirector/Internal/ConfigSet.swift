@@ -18,7 +18,7 @@ enum ConfigType: String, Sendable, Codable, CaseIterable {
 }
 
 /// The evaluated state of a single config, as returned by the server.
-struct ConfigState: Sendable, Equatable, Decodable {
+struct ConfigState: Sendable, Equatable, Codable {
     var id: String
     var key: String
     var type: ConfigType
@@ -50,6 +50,15 @@ struct ConfigState: Sendable, Equatable, Decodable {
         type = try container.decodeIfPresent(ConfigType.self, forKey: .type) ?? .custom
         value = try container.decodeIfPresent(String.self, forKey: .value)
         valueID = try container.decodeIfPresent(String.self, forKey: .valueID)
+    }
+
+    func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(key, forKey: .key)
+        try container.encode(type, forKey: .type)
+        try container.encodeIfPresent(value, forKey: .value)
+        try container.encodeIfPresent(valueID, forKey: .valueID)
     }
 }
 

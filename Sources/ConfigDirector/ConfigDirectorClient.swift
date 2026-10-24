@@ -100,8 +100,8 @@ public final class ConfigDirectorClient: Sendable {
         session: URLSession,
         lifecycle: any AppLifecycleObserver,
         telemetryOptions: TelemetryOptions,
-        makeTelemetry: TelemetryFactory,
-        makeTransport: TransportFactory
+        makeTelemetry: @escaping TelemetryFactory,
+        makeTransport: @escaping TransportFactory
     ) throws(ConfigDirectorError) {
         let plan = try ConnectionPlan.decide(
             clientSDKKey: clientSDKKey,
@@ -113,11 +113,13 @@ public final class ConfigDirectorClient: Sendable {
             options: options,
             identity: identity,
             makeClientSession: makeClientSession,
-            session: session,
-            lifecycle: lifecycle,
-            telemetryOptions: telemetryOptions,
-            makeTelemetry: makeTelemetry,
-            makeTransport: makeTransport
+            dependencies: ClientDependencies(
+                session: session,
+                lifecycle: lifecycle,
+                telemetryOptions: telemetryOptions,
+                makeTelemetry: makeTelemetry,
+                makeTransport: makeTransport
+            )
         )
 
         logger = options.logger
@@ -142,7 +144,9 @@ public final class ConfigDirectorClient: Sendable {
     }
 
     /// Whether the client is ready, meaning the connection to the server succeeded and config state
-    /// was received, or, in ``ConnectionMode/offline`` mode, the values were loaded.
+    /// was received, or, in ``ConnectionMode/offline`` mode, the values were loaded. It stays `false`
+    /// while the client serves the values kept on the device from an earlier launch; see
+    /// ``ConfigDirectorClientOptions/caching``.
     public var isReady: Bool {
         store.isReady
     }
@@ -153,7 +157,8 @@ public final class ConfigDirectorClient: Sendable {
     /// client that has never received config state, stays `true` through timeouts and retries, and
     /// becomes `false` when the first config state arrives, when an unrecoverable connection error
     /// stops the retries, or on ``close()``. ``updateContext(_:)`` and ``resumeNetwork()`` never
-    /// set it.
+    /// set it, and it stays `true` while the client serves the values kept on the device from an
+    /// earlier launch.
     public var isInitializing: Bool {
         connectionState.withLock { $0.isInitializing } && !store.hasReceivedConfigSet
     }
@@ -191,7 +196,8 @@ public final class ConfigDirectorClient: Sendable {
 
     /// Connects to ConfigDirector to retrieve config evaluations. Until initialization succeeds,
     /// every config returns the default value passed to ``value(for:default:)`` or
-    /// ``values(for:default:)``.
+    /// ``values(for:default:)``, or, on a launch after one that received config state for the same
+    /// context, the value kept on the device; see ``ConfigDirectorClientOptions/caching``.
     ///
     /// If the connection fails or is interrupted by a transient error the client keeps trying to
     /// connect. If it fails with a persistent error, such as an invalid SDK key, the client stops

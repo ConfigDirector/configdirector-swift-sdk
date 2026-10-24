@@ -89,7 +89,7 @@ extension ClientSession {
         let record = StoredInstanceIDRecord(
             version: recordVersion,
             id: instanceID,
-            createdAt: Int64(Date().timeIntervalSince1970 * 1000)
+            createdAt: Date().millisecondsSince1970
         )
         let stored: Bool
         do {

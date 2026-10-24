@@ -184,6 +184,7 @@ private func describe(_ event: ClientEvent?) -> String? {
     case let .ready(reason)?: "ready(\(reason))"
     case .configsUpdated?: "configsUpdated"
     case let .contextUpdated(context)?: "contextUpdated(\(context?.id ?? "none"))"
+    case .cachedValuesLoaded?: "cachedValuesLoaded"
     case nil: nil
     }
 }

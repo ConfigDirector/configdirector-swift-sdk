@@ -13,6 +13,13 @@ struct EvaluationResult<Value> {
     static func usedDefault(_ value: Value, reason: EvaluationReason) -> Self {
         Self(value: value, usedDefault: true, reason: reason)
     }
+
+    func asServedFrom(_ source: ConfigSetSource) -> Self {
+        guard source == .cachedValues, reason == .foundMatch else { return self }
+        var served = self
+        served.reason = .cached
+        return served
+    }
 }
 
 enum ConfigValueParser {

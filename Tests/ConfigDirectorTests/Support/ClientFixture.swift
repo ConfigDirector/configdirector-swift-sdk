@@ -39,6 +39,7 @@ final class ClientFixture: Sendable {
         pollingInterval: TimeInterval? = nil,
         baseURL: URL? = nil,
         pausesWhileBackgrounded: Bool = true,
+        caching: CachingOptions = CachingOptions(enabled: false),
         lifecycle: (any AppLifecycleObserver)? = nil,
         telemetryFlushInterval: TimeInterval = 0.05,
         logger: any ConfigDirectorLogger = ConsoleLogger(level: .off),
@@ -64,6 +65,7 @@ final class ClientFixture: Sendable {
             options: ConfigDirectorClientOptions(
                 metadata: ConfigDirectorMetaContext(appName: "test-app", appVersion: "2.3.4"),
                 connection: connection,
+                caching: caching,
                 logger: logger
             ),
             identity: identity,

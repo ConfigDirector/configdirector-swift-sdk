@@ -28,7 +28,7 @@ struct ConfigStoreTests {
     private let events: StreamReader<ClientEvent>
 
     init() {
-        store = ConfigStore(logger: ConsoleLogger(level: .off), telemetry: telemetry)
+        store = ConfigStore(logger: ConsoleLogger(level: .off), telemetry: telemetry, caching: .keepNothing)
         events = StreamReader(store.events.subscribe())
     }
 
@@ -39,6 +39,7 @@ struct ConfigStoreTests {
             case .ready: names.append("ready")
             case .configsUpdated: names.append("configsUpdated")
             case .contextUpdated: names.append("contextUpdated")
+            case .cachedValuesLoaded: names.append("cachedValuesLoaded")
             }
         }
         return names

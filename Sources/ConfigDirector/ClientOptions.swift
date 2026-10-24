@@ -84,6 +84,11 @@ public struct ConfigDirectorClientOptions: Sendable {
     /// Connection options.
     public var connection: ConnectionOptions
 
+    /// Whether, and where, the client keeps the last values it received on the device and serves
+    /// them on the next launch of the same context until live values arrive. On by default, in the
+    /// app's `UserDefaults`; ignored in ``ConnectionMode/offline`` mode.
+    public var caching: CachingOptions
+
     /// Where the SDK writes its logs. Defaults to a ``ConsoleLogger`` at the
     /// ``ConfigDirectorLogLevel/warn`` level.
     ///
@@ -95,10 +100,12 @@ public struct ConfigDirectorClientOptions: Sendable {
     public init(
         metadata: ConfigDirectorMetaContext? = nil,
         connection: ConnectionOptions = ConnectionOptions(),
+        caching: CachingOptions = CachingOptions(),
         logger: any ConfigDirectorLogger = ConsoleLogger()
     ) {
         self.metadata = metadata
         self.connection = connection
+        self.caching = caching
         self.logger = logger
     }
 }

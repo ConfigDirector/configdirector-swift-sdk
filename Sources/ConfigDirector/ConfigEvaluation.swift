@@ -5,6 +5,10 @@ public enum EvaluationReason: String, Sendable {
     /// The config state was found and its value matched the requested type.
     case foundMatch = "found-match"
 
+    /// The value was served from the values kept on the device from an earlier launch, before
+    /// live values arrived. It is not an in-code default value.
+    case cached
+
     /// No state was received for the config key.
     case configStateMissing = "config-state-missing"
 

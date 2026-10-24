@@ -5,8 +5,15 @@ enum LiveConnectionMode: Sendable {
     case polling
 }
 
+struct LiveConnection: Sendable {
+    var mode: LiveConnectionMode
+    var clientSDKKey: String
+    var baseURL: URL
+    var pollingInterval: TimeInterval
+}
+
 enum ConnectionPlan {
-    case connect(mode: LiveConnectionMode, clientSDKKey: String, baseURL: URL, pollingInterval: TimeInterval)
+    case connect(LiveConnection)
     case stayOffline(configs: [String: ConfigState])
 
     static func decide(
@@ -52,7 +59,7 @@ enum ConnectionPlan {
             """)
         }
 
-        return .connect(
+        return .connect(LiveConnection(
             mode: mode,
             clientSDKKey: clientSDKKey,
             baseURL: baseURL,
@@ -61,7 +68,7 @@ enum ConnectionPlan {
                 mode: mode,
                 logger: logger
             )
-        )
+        ))
     }
 
     private static func absoluteBaseURL(_ baseURL: URL?) throws(ConfigDirectorError) -> URL {

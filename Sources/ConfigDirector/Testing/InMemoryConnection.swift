@@ -14,6 +14,7 @@ package final class InMemoryConnection: Sendable {
                 options: ConfigDirectorClientOptions(
                     metadata: ConfigDirectorMetaContext(appName: "test-client", appVersion: "0.0.0"),
                     connection: ConnectionOptions(timeout: timeout),
+                    caching: CachingOptions(enabled: false),
                     logger: logger
                 ),
                 identity: .swiftClientSDK,

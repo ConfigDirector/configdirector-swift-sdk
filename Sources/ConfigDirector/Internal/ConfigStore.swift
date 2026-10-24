@@ -1,5 +1,11 @@
 import Foundation
 
+enum ConfigSetSource {
+    case noConfigSet
+    case cachedValues
+    case livePayload
+}
+
 final class ConfigStore: Sendable {
     let events = Broadcaster<ClientEvent>()
 
@@ -8,14 +14,10 @@ final class ConfigStore: Sendable {
     /// past a ``ClientEvent/ready(_:)`` it has not consumed yet.
     let evaluations = Broadcaster<ConfigEvaluation>()
 
-    private struct Watcher: Sendable {
-        let reevaluate: @Sendable () -> Void
-        let finish: @Sendable () -> Void
-    }
-
     private struct State {
         var configs: [String: ConfigState] = [:]
-        var hasReceivedConfigSet = false
+        var configSetSource = ConfigSetSource.noConfigSet
+        var hasStartedCachedValuesAdoption = false
         var context: ConfigDirectorContext?
         var isReady = false
         var isClosed = false
@@ -23,20 +25,22 @@ final class ConfigStore: Sendable {
         var pendingContext: ConfigDirectorContext?
         var hasPendingContext = false
         var readyWaiters: [UUID: CheckedContinuation<Void, Never>] = [:]
-        var watchers: [String: [UUID: Watcher]] = [:]
     }
 
     private let logger: any ConfigDirectorLogger
     private let telemetry: any TelemetryClient
+    private let caching: CachingPlan
+    private let watchers = ConfigWatchers()
     private let state = Locked(State())
 
-    init(logger: any ConfigDirectorLogger, telemetry: any TelemetryClient) {
+    init(logger: any ConfigDirectorLogger, telemetry: any TelemetryClient, caching: CachingPlan) {
         self.logger = logger
         self.telemetry = telemetry
+        self.caching = caching
     }
 
     var hasReceivedConfigSet: Bool {
-        state.withLock(\.hasReceivedConfigSet)
+        state.withLock { $0.configSetSource == .livePayload }
     }
 
     var isReady: Bool {
@@ -57,6 +61,9 @@ final class ConfigStore: Sendable {
             $0.pendingReason = reason
             $0.pendingContext = context
             $0.hasPendingContext = true
+        }
+        if reason == .initialization {
+            adoptCachedValuesOnce(launchContext: context)
         }
         return context
     }
@@ -116,9 +123,10 @@ final class ConfigStore: Sendable {
 
     func handleConfigSet(_ configSet: ConfigSet) {
         let keys = Array(configSet.configs.keys)
-        let (watchers, removedKeys) = state.withLock { state -> ([Watcher], [String]) in
-            let isDelta = state.hasReceivedConfigSet && configSet.kind == .delta
-            let replacesPrevious = state.hasReceivedConfigSet && !isDelta
+        let merged = state.withLock { state -> MergedConfigSet in
+            let holdsConfigs = state.configSetSource != .noConfigSet
+            let isDelta = holdsConfigs && configSet.kind == .delta
+            let replacesPrevious = holdsConfigs && !isDelta
             let removedKeys = replacesPrevious
                 ? state.configs.keys.filter { configSet.configs[$0] == nil }
                 : []
@@ -127,18 +135,19 @@ final class ConfigStore: Sendable {
             } else {
                 state.configs = configSet.configs
             }
-            state.hasReceivedConfigSet = true
-
-            let affected = isDelta ? keys.compactMap { state.watchers[$0] } : Array(state.watchers.values)
-            return (affected.flatMap { Array($0.values) }, removedKeys)
+            state.configSetSource = .livePayload
+            return MergedConfigSet(isDelta: isDelta, removedKeys: removedKeys, configs: state.configs)
         }
 
         markReady()
-        events.emit(.configsUpdated(ConfigsUpdate(keys: keys, removedKeys: removedKeys)))
-        for watcher in watchers {
-            watcher.reevaluate()
+        keepOnDevice(merged.configs, from: configSet)
+        events.emit(.configsUpdated(ConfigsUpdate(keys: keys, removedKeys: merged.removedKeys)))
+        if merged.isDelta {
+            watchers.reevaluate(keys: keys)
+        } else {
+            watchers.reevaluateAll()
         }
-        logger.debug("Config state received from the server: \(keys), removed: \(removedKeys)")
+        logger.debug("Config state received from the server: \(keys), removed: \(merged.removedKeys)")
     }
 
     func value<Value: ConfigValue>(for key: String, default defaultValue: Value) -> Value {
@@ -161,7 +170,7 @@ final class ConfigStore: Sendable {
         for key: String,
         default defaultValue: Value
     ) -> AsyncStream<Value> {
-        stream(for: key) { [weak self] in
+        watchers.stream(for: key) { [weak self] in
             self?.value(for: key, default: defaultValue) ?? defaultValue
         }
     }
@@ -171,28 +180,23 @@ final class ConfigStore: Sendable {
         as type: Value.Type,
         default defaultValue: Value
     ) -> AsyncStream<Value> {
-        stream(for: key) { [weak self] in
+        watchers.stream(for: key) { [weak self] in
             self?.value(for: key, as: type, default: defaultValue) ?? defaultValue
         }
     }
 
     func close() {
-        let (watchers, waiters) = state.withLock { state -> ([Watcher], [CheckedContinuation<Void, Never>]) in
+        let waiters = state.withLock { state -> [CheckedContinuation<Void, Never>] in
             state.isClosed = true
             state.isReady = false
-            let watchers = state.watchers.values.flatMap { Array($0.values) }
-            let waiters = Array(state.readyWaiters.values)
-            state.watchers.removeAll()
-            state.readyWaiters.removeAll()
-            return (watchers, waiters)
+            defer { state.readyWaiters.removeAll() }
+            return Array(state.readyWaiters.values)
         }
 
         for waiter in waiters {
             waiter.resume()
         }
-        for watcher in watchers {
-            watcher.finish()
-        }
+        watchers.finishAll()
         events.finish()
         evaluations.finish()
     }
@@ -202,15 +206,15 @@ final class ConfigStore: Sendable {
         default defaultValue: Value,
         parse: (ConfigState) -> EvaluationResult<Value>
     ) -> Value {
-        let (configState, isReady, context) = state.withLock {
-            ($0.configs[key], $0.isReady, $0.context)
+        let (configState, isReady, context, source) = state.withLock {
+            ($0.configs[key], $0.isReady, $0.context, $0.configSetSource)
         }
 
-        let result = configState.map(parse) ?? EvaluationResult(
+        let result = (configState.map(parse) ?? EvaluationResult(
             value: defaultValue,
             usedDefault: true,
             reason: isReady ? .configStateMissing : .clientNotReady
-        )
+        )).asServedFrom(source)
 
         telemetry.evaluatedConfig(EvaluatedConfigEvent(
             contextID: context?.id,
@@ -241,48 +245,6 @@ final class ConfigStore: Sendable {
         return result.value
     }
 
-    private func stream<Value: Equatable & Sendable>(
-        for key: String,
-        evaluate: @escaping @Sendable () -> Value
-    ) -> AsyncStream<Value> {
-        AsyncStream(bufferingPolicy: .bufferingNewest(1)) { continuation in
-            let id = UUID()
-            let lastEmitted = Locked<Value?>(nil)
-
-            let emitIfChanged: @Sendable () -> Void = {
-                let value = evaluate()
-                let hasChanged = lastEmitted.withLock { last -> Bool in
-                    guard last != value else { return false }
-                    last = value
-                    return true
-                }
-                if hasChanged {
-                    continuation.yield(value)
-                }
-            }
-
-            let isClosed = state.withLock { state -> Bool in
-                guard !state.isClosed else { return true }
-                state.watchers[key, default: [:]][id] = Watcher(
-                    reevaluate: emitIfChanged,
-                    finish: { continuation.finish() }
-                )
-                return false
-            }
-
-            guard !isClosed else {
-                continuation.finish()
-                return
-            }
-
-            continuation.onTermination = { [weak self] _ in
-                self?.state.withLock { $0.watchers[key]?[id] = nil }
-            }
-
-            emitIfChanged()
-        }
-    }
-
     private func markReady() {
         applyPendingContext()
 
@@ -306,6 +268,68 @@ final class ConfigStore: Sendable {
         logger.debug("Received config state from the server, the client is ready")
     }
 
+    private func adoptCachedValuesOnce(launchContext: ConfigDirectorContext?) {
+        guard case let .keepValues(store) = caching else { return }
+        let isFirst = state.withLock { state -> Bool in
+            defer { state.hasStartedCachedValuesAdoption = true }
+            return !state.hasStartedCachedValuesAdoption
+        }
+        guard isFirst else { return }
+
+        let launchContextTag = store.contextTag(for: launchContext)
+        Task { [weak self] in
+            switch await store.read() {
+            case let .stored(cachedValues):
+                self?.adopt(cachedValues, launchContextTag: launchContextTag)
+            case .nothingStored, .notAnEntry, .storageFailed:
+                break
+            }
+        }
+    }
+
+    private func adopt(_ cachedValues: CachedValues, launchContextTag: ContextTag) {
+        let keys = Array(cachedValues.configs.keys)
+        let adoption = state.withLock { state -> CachedValuesAdoption in
+            let adoption = CachedValuesAdoption.decide(
+                cachedValues,
+                launchContextTag: launchContextTag,
+                hasReceivedLiveValues: state.configSetSource == .livePayload,
+                isClosed: state.isClosed
+            )
+            guard adoption == .adopt else { return adoption }
+            state.configs = cachedValues.configs
+            state.configSetSource = .cachedValues
+            return adoption
+        }
+
+        switch adoption {
+        case .adopt:
+            events.emit(.cachedValuesLoaded)
+            events.emit(.configsUpdated(ConfigsUpdate(keys: keys)))
+            watchers.reevaluateAll()
+            logger.debug("Serving the values kept on the device until live values arrive: \(keys)")
+        case .liveValuesAlreadyArrived:
+            logger.debug("The values kept on the device were not adopted: live values already arrived")
+        case .contextMismatch:
+            logger.debug("The values kept on the device were not adopted: the launch context differs")
+        case .clientClosed:
+            break
+        }
+    }
+
+    private func keepOnDevice(_ configs: [String: ConfigState], from configSet: ConfigSet) {
+        guard case let .keepValues(store) = caching else { return }
+        let context = state.withLock { $0.context }
+
+        store.replace(CachedValues(
+            contextTag: store.contextTag(for: context),
+            environmentID: configSet.environmentID,
+            projectID: configSet.projectID,
+            configs: configs,
+            receivedAt: Date().millisecondsSince1970
+        ))
+    }
+
     private func contextToConnectWith(
         _ suppliedContext: ConfigDirectorContext?,
         reason: ConnectReason
@@ -327,4 +351,10 @@ final class ConfigStore: Sendable {
     private func resumeReadyWaiter(_ id: UUID) {
         state.withLock { $0.readyWaiters.removeValue(forKey: id) }?.resume()
     }
+}
+
+private struct MergedConfigSet {
+    var isDelta: Bool
+    var removedKeys: [String]
+    var configs: [String: ConfigState]
 }

@@ -10,6 +10,20 @@ version can be tagged. See [Releasing](CONTRIBUTING.md#releasing).
 
 ### Added
 
+- The client keeps the last values it received from ConfigDirector in the app's `UserDefaults` and
+  serves them on the next launch of the same context until live values arrive, so an app opened
+  without a network shows the values ConfigDirector last sent instead of the in-code default values.
+  Every evaluation served this way carries the new evaluation reason `EvaluationReason.cached`, with
+  `isDefaultValue` false; a `switch` over every `EvaluationReason` needs a case for it. The client is
+  not ready while it serves them: `isReady` stays false, `isInitializing` stays true, `initialize`
+  still waits for live values or its timeout, and `ready` is published when live values arrive. The
+  new `ClientEvent.cachedValuesLoaded` is published when the kept values are loaded, followed by
+  `configsUpdated` with their keys; a `switch` over every `ClientEvent` needs a case for it. The new
+  `ConfigDirectorClientOptions.caching`, a `CachingOptions`, turns this off with `enabled: false` or
+  replaces the store with a `CachingProvider` of your own (`read`, `write`, `remove` and `sizeLimit`
+  in bytes); the default store keeps the entry under a key derived from the client SDK key with a
+  size limit of 256 KB, above which nothing is kept. Nothing is kept in `ConnectionMode.offline`,
+  and the test client in `ConfigDirectorTesting` keeps nothing.
 - Offline mode: `ConnectionOptions(mode: .offline, values: ["new-checkout": true, "max-items": 20])`
   serves the given values to every context without connecting to ConfigDirector. The client is
   ready as soon as `initialize` is called, with `ready(.initialization)` published once, and sends
