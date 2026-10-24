@@ -8,6 +8,8 @@ version can be tagged. See [Releasing](CONTRIBUTING.md#releasing).
 
 ## [Unreleased]
 
+## [1.9.0] - 2026-10-23
+
 ### Added
 
 - The client keeps the last values it received from ConfigDirector in the app's `UserDefaults` and
