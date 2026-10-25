@@ -8,6 +8,11 @@ version can be tagged. See [Releasing](CONTRIBUTING.md#releasing).
 
 ## [Unreleased]
 
+### Changed
+
+- The client now sends its instance ID with telemetry, the same ID it connects with, so
+  ConfigDirector can tell which app install the telemetry came from.
+
 ## [1.9.0] - 2026-10-23
 
 ### Added

@@ -47,7 +47,7 @@ struct ConfigDirectorClientConnectionTests {
         let client = try ConfigDirectorClient(clientSDKKey: "sdk-key", options: options)
         defer { client.close() }
 
-        #expect(logger.recorded.contains { $0.contains("not HTTPS") })
+        #expect(logger.messages.contains { $0.contains("not HTTPS") })
     }
 
     @Test func doesNotWarnAboutAnHTTPSBaseURL() throws {
@@ -59,7 +59,7 @@ struct ConfigDirectorClientConnectionTests {
         let client = try ConfigDirectorClient(clientSDKKey: "sdk-key", options: options)
         defer { client.close() }
 
-        #expect(logger.recorded.contains { $0.contains("not HTTPS") } == false)
+        #expect(logger.messages.contains { $0.contains("not HTTPS") } == false)
     }
 
     @Test func rejectsABaseURLThatIsNotAbsolute() throws {
@@ -218,8 +218,8 @@ struct ConfigDirectorClientConnectionTests {
         await client.updateContext(ConfigDirectorContext(id: "after"))
 
         #expect(client.context?.id == "before")
-        #expect(logger.recorded.filter { $0.contains("An error occurred during context update") }.count == 2)
-        #expect(logger.recorded.contains { $0.contains("keep retrying") } == false)
+        #expect(logger.messages.filter { $0.contains("An error occurred during context update") }.count == 2)
+        #expect(logger.messages.contains { $0.contains("keep retrying") } == false)
         #expect(fixture.pollRequests.count == 2)
     }
 

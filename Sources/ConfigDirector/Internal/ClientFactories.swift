@@ -83,6 +83,7 @@ struct ClientComponents {
         let telemetry = dependencies.makeTelemetry(
             HTTPEventReporter(
                 clientSDKKey: live.clientSDKKey,
+                instanceID: clientSession.instanceID,
                 baseURL: live.baseURL,
                 metaContext: metaContext,
                 logger: options.logger,

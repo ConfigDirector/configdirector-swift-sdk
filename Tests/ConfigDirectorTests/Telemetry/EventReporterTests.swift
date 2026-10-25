@@ -22,6 +22,7 @@ struct EventReporterTests {
         return Fixture(
             reporter: HTTPEventReporter(
                 clientSDKKey: "sdk-key",
+                instanceID: "instance-1",
                 baseURL: baseURL,
                 metaContext: SDKMetaContext(sdkName: "swift-client-sdk", sdkVersion: "0.1.0"),
                 logger: ConsoleLogger(level: .off),
@@ -37,6 +38,7 @@ struct EventReporterTests {
         StubURLProtocol.enqueue([.json("{}", statusCode: 202)], for: url)
         let reporter = try HTTPEventReporter(
             clientSDKKey: "sdk-key",
+            instanceID: "instance-1",
             baseURL: #require(URL(string: root)),
             metaContext: SDKMetaContext(sdkName: "swift-client-sdk", sdkVersion: "0.1.0"),
             logger: ConsoleLogger(level: .off),
@@ -88,6 +90,7 @@ struct EventReporterTests {
         let body = try #require(request.body)
         let report = try JSONDecoder().decode(TelemetryReport.self, from: Data(body.utf8))
         #expect(report.clientSdkKey == "sdk-key")
+        #expect(report.instanceId == "instance-1")
         #expect(report.metaContext.sdkName == "swift-client-sdk")
         #expect(report.context?.id == "user-1")
         #expect(report.aggregatedEvents.evaluatedConfig.count == 1)
@@ -122,10 +125,10 @@ struct EventReporterTests {
         #expect(await fixture.reporter.report(report) == .succeeded)
 
         let body = try #require(fixture.requests.first?.body)
-        let sent = try JSONDecoder().decode(TelemetryReport.self, from: Data(body.utf8))
-        let submission = try #require(sent.aggregatedEvents.invalidContext.first)
-        #expect(sent.aggregatedEvents.invalidContext.count == 1)
-        #expect(sent.aggregatedEvents.evaluatedConfig.isEmpty)
+        let sentReport = try JSONDecoder().decode(TelemetryReport.self, from: Data(body.utf8))
+        let submission = try #require(sentReport.aggregatedEvents.invalidContext.first)
+        #expect(sentReport.aggregatedEvents.invalidContext.count == 1)
+        #expect(sentReport.aggregatedEvents.evaluatedConfig.isEmpty)
         #expect(submission.startTime == "1970-01-01T00:00:00.000Z")
         #expect(submission.endTime == "1970-01-01T00:00:01.000Z")
         #expect(submission.count == 4)

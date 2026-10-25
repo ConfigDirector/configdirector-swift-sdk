@@ -192,7 +192,7 @@ final class RecordingLogger: ConfigDirectorLogger {
 
     private let entries = Locked<[Entry]>([])
 
-    var recorded: [String] {
+    var messages: [String] {
         entries.withLock { $0.map(\.message) }
     }
 
@@ -241,7 +241,7 @@ struct Theme: Codable, Equatable {
 
 /// A telemetry report, read back from the request the SDK posted.
 struct TelemetryReport: Decodable, Sendable {
-    struct Aggregated: Decodable, Sendable {
+    struct AggregatedEvaluation: Decodable, Sendable {
         var startTime: String
         var endTime: String
         var count: Int
@@ -278,12 +278,12 @@ struct TelemetryReport: Decodable, Sendable {
         var kindSample: String?
     }
 
-    struct Events: Decodable, Sendable {
-        var evaluatedConfig: [Aggregated]
+    struct AggregatedEvents: Decodable, Sendable {
+        var evaluatedConfig: [AggregatedEvaluation]
         var invalidContext: [AggregatedInvalidContextSubmission]
     }
 
-    struct Dropped: Decodable, Sendable {
+    struct DroppedEvents: Decodable, Sendable {
         var evaluatedConfig: Int
     }
 
@@ -295,14 +295,15 @@ struct TelemetryReport: Decodable, Sendable {
     }
 
     var clientSdkKey: String
+    var instanceId: String
     var metaContext: Meta
     var context: SentPayload.Context?
-    var aggregatedEvents: Events
-    var droppedEvents: Dropped
+    var aggregatedEvents: AggregatedEvents
+    var droppedEvents: DroppedEvents
 
     /// The reported evaluations, keyed by config, so a test can assert on one without depending on
     /// the order the others happen to come back in.
-    func evaluations(of key: String) -> [Aggregated] {
+    func evaluations(of key: String) -> [AggregatedEvaluation] {
         aggregatedEvents.evaluatedConfig.filter { $0.event.key == key }
     }
 }

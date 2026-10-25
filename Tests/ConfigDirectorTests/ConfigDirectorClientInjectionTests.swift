@@ -107,4 +107,22 @@ struct ConfigDirectorClientInjectionTests {
         #expect(payload.instanceId == "instance-2")
         #expect(payload.ephemeral == true)
     }
+
+    @Test func sendsTheInstanceIDItIsGivenWithTelemetryButNotWhetherItIsEphemeral() async throws {
+        let fixture = ClientFixture()
+        fixture.serveStream(servedConfigSet)
+        let client = try fixture.makeClient(
+            makeClientSession: { ClientSession(instanceID: "instance-2", ephemeral: true) }
+        )
+        defer { client.close() }
+        await client.initialize()
+
+        _ = client.value(for: "dark-mode", default: false)
+
+        #expect(await waitUntil { !fixture.telemetryRequests.isEmpty })
+        let body = try #require(fixture.telemetryRequests.first?.body)
+        let fields = try #require(JSONSerialization.jsonObject(with: Data(body.utf8)) as? [String: Any])
+        #expect(fields["instanceId"] as? String == "instance-2")
+        #expect(fields["ephemeral"] == nil)
+    }
 }

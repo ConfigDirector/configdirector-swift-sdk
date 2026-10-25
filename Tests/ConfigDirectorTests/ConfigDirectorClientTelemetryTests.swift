@@ -8,7 +8,7 @@ struct ConfigDirectorClientTelemetryTests {
     private func firstReport(
         _ fixture: ClientFixture,
         containing key: String
-    ) async -> TelemetryReport.Aggregated? {
+    ) async -> TelemetryReport.AggregatedEvaluation? {
         _ = await waitUntil { fixture.telemetryReports().contains { !$0.evaluations(of: key).isEmpty } }
         return fixture.telemetryReports().lazy.compactMap { $0.evaluations(of: key).first }.first
     }

@@ -34,6 +34,7 @@ final class HTTPEventReporter: EventReporter {
     }
 
     private let clientSDKKey: String
+    private let instanceID: String
     private let url: URL
     private let metaContext: SDKMetaContext
     private let logger: any ConfigDirectorLogger
@@ -43,6 +44,7 @@ final class HTTPEventReporter: EventReporter {
 
     init(
         clientSDKKey: String,
+        instanceID: String,
         baseURL: URL,
         metaContext: SDKMetaContext,
         logger: any ConfigDirectorLogger,
@@ -50,6 +52,7 @@ final class HTTPEventReporter: EventReporter {
         timeout: TimeInterval = 5
     ) {
         self.clientSDKKey = clientSDKKey
+        self.instanceID = instanceID
         url = baseURL.appendingPathComponent("client/telemetry/v1")
         self.metaContext = metaContext
         self.logger = logger
@@ -61,22 +64,23 @@ final class HTTPEventReporter: EventReporter {
         guard !state.withLock({ $0.isStopped }) else { return .failedFatally }
         guard !report.isEmpty else { return .succeeded }
 
-        let compacted = EventQueueSnapshot(
+        let compactedEvaluations = EventQueueSnapshot(
             startTime: report.snapshot.startTime,
             endTime: report.snapshot.endTime,
             events: report.snapshot.events.map { $0.compacted() },
             droppedCount: report.snapshot.droppedCount
         )
-        let aggregated = compacted.aggregated()
+        let aggregatedEvaluations = compactedEvaluations.aggregated()
 
         let body: Data
         do {
             body = try JSONEncoder().encode(TelemetryPayload(
                 clientSDKKey: clientSDKKey,
+                instanceID: instanceID,
                 metaContext: metaContext,
                 context: report.context,
                 aggregatedEvents: .init(
-                    evaluatedConfig: aggregated,
+                    evaluatedConfig: aggregatedEvaluations,
                     invalidContext: report.invalidContextSubmissions
                 ),
                 droppedEvents: .init(evaluatedConfig: report.snapshot.droppedCount)
@@ -139,6 +143,7 @@ private struct TelemetryPayload: Encodable {
     }
 
     var clientSDKKey: String
+    var instanceID: String
     var metaContext: SDKMetaContext
     var context: ConfigDirectorContext?
     var discreteEvents: [String: String] = [:]
@@ -148,5 +153,6 @@ private struct TelemetryPayload: Encodable {
     enum CodingKeys: String, CodingKey {
         case metaContext, context, discreteEvents, aggregatedEvents, droppedEvents
         case clientSDKKey = "clientSdkKey"
+        case instanceID = "instanceId"
     }
 }
