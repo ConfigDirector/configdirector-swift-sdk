@@ -8,6 +8,8 @@ version can be tagged. See [Releasing](CONTRIBUTING.md#releasing).
 
 ## [Unreleased]
 
+## [1.9.1] - 2026-10-25
+
 ### Changed
 
 - The client now sends its instance ID with telemetry, the same ID it connects with, so
