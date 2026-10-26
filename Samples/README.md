@@ -43,7 +43,7 @@ _Up to Next Major Version_. In a `Package.swift` it is:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/ConfigDirector/configdirector-swift-sdk.git", from: "1.9.0"),
+    .package(url: "https://github.com/ConfigDirector/configdirector-swift-sdk.git", from: "1.9.1"),
 ],
 targets: [
     .target(
