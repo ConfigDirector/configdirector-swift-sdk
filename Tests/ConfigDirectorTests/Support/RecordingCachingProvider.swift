@@ -107,7 +107,7 @@ struct StoredCachedValuesEntry: Decodable {
     }
 
     var formatVersion: Int
-    var clientSdkKey: String
+    var clientSdkKeyDigest: String
     var contextTag: ContextTag
     var environmentId: String
     var projectId: String

@@ -7,7 +7,7 @@ final class CachedValuesStore: Sendable {
     }
 
     private let provider: any CachingProvider
-    private let clientSDKKey: String
+    private let clientSDKKeyDigest: String
     private let instanceID: String
     private let warnings: CachingWarnings
     private let pendingWrite = Locked(PendingWrite())
@@ -15,17 +15,17 @@ final class CachedValuesStore: Sendable {
 
     init(
         provider: any CachingProvider,
-        clientSDKKey: String,
+        clientSDKKeyDigest: String,
         instanceID: String,
         logger: any ConfigDirectorLogger
     ) {
         self.provider = provider
-        self.clientSDKKey = clientSDKKey
+        self.clientSDKKeyDigest = clientSDKKeyDigest
         self.instanceID = instanceID
         let warnings = CachingWarnings(logger: logger)
         self.warnings = warnings
         pendingRead = Task {
-            await Self.readEntry(from: provider, for: clientSDKKey, warnings: warnings)
+            await Self.readEntry(from: provider, for: clientSDKKeyDigest, warnings: warnings)
         }
     }
 
@@ -68,8 +68,11 @@ final class CachedValuesStore: Sendable {
     private func writeEntry(_ cachedValues: CachedValues) async {
         let serialized: Data
         do {
-            serialized = try CachedValuesEntry(clientSDKKey: clientSDKKey, cachedValues: cachedValues)
-                .serialized()
+            serialized = try CachedValuesEntry(
+                clientSDKKeyDigest: clientSDKKeyDigest,
+                cachedValues: cachedValues
+            )
+            .serialized()
         } catch {
             warnings.warnOnce(.writeFailed, "Could not keep the values on the device", error: error)
             return
@@ -94,7 +97,7 @@ final class CachedValuesStore: Sendable {
 
     private static func readEntry(
         from provider: any CachingProvider,
-        for clientSDKKey: String,
+        for clientSDKKeyDigest: String,
         warnings: CachingWarnings
     ) async -> CachedValuesRead {
         let stored: String?
@@ -110,14 +113,19 @@ final class CachedValuesStore: Sendable {
         }
         guard let stored, !stored.isEmpty else { return .nothingStored }
 
-        guard let cachedValues = CachedValuesEntry.cachedValues(in: stored, for: clientSDKKey) else {
+        switch CachedValuesEntry.parse(stored, for: clientSDKKeyDigest) {
+        case let .cachedValues(cachedValues):
+            return .stored(cachedValues)
+        case .firstFormatEntry:
+            await removeEntry(from: provider, warnings: warnings)
+            return .firstFormatEntry
+        case .notAnEntry:
             warnings.warnOnce(.notAnEntry, """
             The values kept on the device could not be read and were removed, starting without them
             """)
             await removeEntry(from: provider, warnings: warnings)
             return .notAnEntry
         }
-        return .stored(cachedValues)
     }
 
     private static func removeEntry(from provider: any CachingProvider, warnings: CachingWarnings) async {

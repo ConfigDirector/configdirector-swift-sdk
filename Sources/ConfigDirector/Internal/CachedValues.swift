@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 
 enum CachingPlan: Sendable {
@@ -8,19 +9,28 @@ enum CachingPlan: Sendable {
         _ caching: CachingOptions,
         clientSDKKey: String,
         instanceID: String,
-        logger: any ConfigDirectorLogger
+        logger: any ConfigDirectorLogger,
+        defaults: UserDefaults = .standard
     ) -> CachingPlan {
         guard caching.enabled else {
             logger.debug("No values are kept on the device: caching is turned off")
             return .keepNothing
         }
 
+        let clientSDKKeyDigest = sha256HexDigest(of: clientSDKKey)
         return .keepValues(CachedValuesStore(
-            provider: caching.provider ?? UserDefaultsCachingProvider(clientSDKKey: clientSDKKey),
-            clientSDKKey: clientSDKKey,
+            provider: caching.provider ?? UserDefaultsCachingProvider(
+                clientSDKKeyDigest: clientSDKKeyDigest,
+                defaults: defaults
+            ),
+            clientSDKKeyDigest: clientSDKKeyDigest,
             instanceID: instanceID,
             logger: logger
         ))
+    }
+
+    private static func sha256HexDigest(of text: String) -> String {
+        SHA256.hash(data: Data(text.utf8)).map { String(format: "%02x", $0) }.joined()
     }
 }
 
@@ -90,6 +100,7 @@ struct CachedValues: Sendable, Equatable, Codable {
 enum CachedValuesRead: Sendable {
     case stored(CachedValues)
     case nothingStored
+    case firstFormatEntry
     case notAnEntry
     case storageFailed
 }
@@ -120,34 +131,42 @@ enum CachedValuesAdoption: Equatable {
 }
 
 struct CachedValuesEntry: Codable {
-    private static let currentFormatVersion = 1
+    enum ParseOutcome {
+        case cachedValues(CachedValues)
+        case firstFormatEntry
+        case notAnEntry
+    }
 
-    private let formatVersion: Int
-    private let clientSDKKey: String
+    private struct FormatVersion: Decodable {
+        let formatVersion: Int
+    }
+
+    private static let currentFormatVersion = 2
+    private static let firstFormatVersion = 1
+
+    private let clientSDKKeyDigest: String
     private let cachedValues: CachedValues
 
     private enum CodingKeys: String, CodingKey {
         case formatVersion
-        case clientSDKKey = "clientSdkKey"
+        case clientSDKKeyDigest = "clientSdkKeyDigest"
     }
 
-    init(clientSDKKey: String, cachedValues: CachedValues) {
-        formatVersion = Self.currentFormatVersion
-        self.clientSDKKey = clientSDKKey
+    init(clientSDKKeyDigest: String, cachedValues: CachedValues) {
+        self.clientSDKKeyDigest = clientSDKKeyDigest
         self.cachedValues = cachedValues
     }
 
     init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        formatVersion = try container.decode(Int.self, forKey: .formatVersion)
-        clientSDKKey = try container.decode(String.self, forKey: .clientSDKKey)
+        clientSDKKeyDigest = try container.decode(String.self, forKey: .clientSDKKeyDigest)
         cachedValues = try CachedValues(from: decoder)
     }
 
     func encode(to encoder: any Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(formatVersion, forKey: .formatVersion)
-        try container.encode(clientSDKKey, forKey: .clientSDKKey)
+        try container.encode(Self.currentFormatVersion, forKey: .formatVersion)
+        try container.encode(clientSDKKeyDigest, forKey: .clientSDKKeyDigest)
         try cachedValues.encode(to: encoder)
     }
 
@@ -155,12 +174,22 @@ struct CachedValuesEntry: Codable {
         try JSONEncoder().encode(self)
     }
 
-    static func cachedValues(in serialized: String, for clientSDKKey: String) -> CachedValues? {
-        guard let entry = try? JSONDecoder().decode(CachedValuesEntry.self, from: Data(serialized.utf8)),
-              entry.formatVersion == currentFormatVersion,
-              entry.clientSDKKey == clientSDKKey
-        else { return nil }
+    static func parse(_ serialized: String, for clientSDKKeyDigest: String) -> ParseOutcome {
+        let data = Data(serialized.utf8)
+        guard let version = try? JSONDecoder().decode(FormatVersion.self, from: data) else {
+            return .notAnEntry
+        }
 
-        return entry.cachedValues
+        switch version.formatVersion {
+        case currentFormatVersion:
+            guard let entry = try? JSONDecoder().decode(CachedValuesEntry.self, from: data),
+                  entry.clientSDKKeyDigest == clientSDKKeyDigest
+            else { return .notAnEntry }
+            return .cachedValues(entry.cachedValues)
+        case firstFormatVersion:
+            return .firstFormatEntry
+        default:
+            return .notAnEntry
+        }
     }
 }

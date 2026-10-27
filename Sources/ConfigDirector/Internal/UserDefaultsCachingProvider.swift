@@ -1,4 +1,3 @@
-import CryptoKit
 import Foundation
 
 struct UserDefaultsCachingProvider: CachingProvider, @unchecked Sendable {
@@ -13,14 +12,9 @@ struct UserDefaultsCachingProvider: CachingProvider, @unchecked Sendable {
     private let defaults: UserDefaults
     private let key: String
 
-    init(clientSDKKey: String, defaults: UserDefaults = .standard) {
+    init(clientSDKKeyDigest: String, defaults: UserDefaults) {
         self.defaults = defaults
-        key = Self.key(for: clientSDKKey)
-    }
-
-    private static func key(for clientSDKKey: String) -> String {
-        let digest = SHA256.hash(data: Data(clientSDKKey.utf8))
-        return "configdirector-sdk.cached-values." + digest.map { String(format: "%02x", $0) }.joined()
+        key = "configdirector-sdk.cached-values." + clientSDKKeyDigest
     }
 
     func read() -> String? {

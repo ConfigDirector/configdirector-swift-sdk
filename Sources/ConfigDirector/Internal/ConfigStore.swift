@@ -281,7 +281,7 @@ final class ConfigStore: Sendable {
             switch await store.read() {
             case let .stored(cachedValues):
                 self?.adopt(cachedValues, launchContextTag: launchContextTag)
-            case .nothingStored, .notAnEntry, .storageFailed:
+            case .nothingStored, .firstFormatEntry, .notAnEntry, .storageFailed:
                 break
             }
         }
