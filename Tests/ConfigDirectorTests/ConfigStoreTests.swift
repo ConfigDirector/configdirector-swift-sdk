@@ -55,30 +55,30 @@ struct ConfigStoreTests {
     }
 
     @Test func reportsTheKeysAFullSetDroppedAsRemoved() async {
-        store.handleConfigSet(ConfigSet(configs: [
+        store.applyReceivedConfigSet(ConfigSet(configs: [
             "a": .make(key: "a", type: .string, value: "1"),
             "b": .make(key: "b", type: .string, value: "2"),
             "c": .make(key: "c", type: .string, value: "3"),
         ]))
         _ = await nextConfigsUpdate()
 
-        store.handleConfigSet(ConfigSet(configs: [
+        store.applyReceivedConfigSet(ConfigSet(configs: [
             "b": .make(key: "b", type: .string, value: "changed"),
         ]))
 
         let update = await nextConfigsUpdate()
         #expect(update?.keys == ["b"])
         #expect(update?.removedKeys.sorted() == ["a", "c"])
-        #expect(store.value(for: "a", default: "gone") == "gone")
+        #expect(store.evaluate("a", default: "gone").value == "gone")
     }
 
     @Test func reportsNothingRemovedOnTheFirstSetOrADelta() async {
-        store.handleConfigSet(ConfigSet(configs: [
+        store.applyReceivedConfigSet(ConfigSet(configs: [
             "a": .make(key: "a", type: .string, value: "1"),
         ]))
         let first = await nextConfigsUpdate()
 
-        store.handleConfigSet(ConfigSet(
+        store.applyReceivedConfigSet(ConfigSet(
             configs: ["b": .make(key: "b", type: .string, value: "2")],
             kind: .delta
         ))
@@ -87,14 +87,14 @@ struct ConfigStoreTests {
         #expect(first?.removedKeys == [])
         #expect(delta?.keys == ["b"])
         #expect(delta?.removedKeys == [])
-        #expect(store.value(for: "a", default: "gone") == "1")
+        #expect(store.evaluate("a", default: "gone").value == "1")
     }
 
     @Test func appliesThePendingContextBeforeReadyWhenConfigStateArrivesFirst() async {
         let context = ConfigDirectorContext(id: "user-1")
         _ = store.beginConnect(reason: .contextUpdate, suppliedContext: context)
 
-        store.handleConfigSet(ConfigSet(configs: [:]))
+        store.applyReceivedConfigSet(ConfigSet(configs: [:]))
 
         #expect(store.context == context)
         #expect(telemetry.updatedContexts == [context])
@@ -106,7 +106,7 @@ struct ConfigStoreTests {
         _ = store.beginConnect(reason: .initialization, suppliedContext: context)
 
         store.applyPendingContext()
-        store.handleConfigSet(ConfigSet(configs: [:]))
+        store.applyReceivedConfigSet(ConfigSet(configs: [:]))
 
         #expect(store.context == context)
         #expect(telemetry.updatedContexts == [context])
@@ -144,7 +144,7 @@ struct ConfigStoreTests {
             suppliedContext: ConfigDirectorContext(id: "abandoned")
         )
         store.abandonConnect()
-        store.handleConfigSet(ConfigSet(configs: [:]))
+        store.applyReceivedConfigSet(ConfigSet(configs: [:]))
 
         #expect(store.context == previous)
         #expect(telemetry.updatedContexts == [previous])

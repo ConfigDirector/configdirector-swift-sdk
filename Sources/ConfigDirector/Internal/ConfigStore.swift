@@ -121,7 +121,7 @@ final class ConfigStore: Sendable {
         }
     }
 
-    func handleConfigSet(_ configSet: ConfigSet) {
+    func applyReceivedConfigSet(_ configSet: ConfigSet) {
         let keys = Array(configSet.configs.keys)
         let merged = state.withLock { state -> MergedConfigSet in
             let holdsConfigs = state.configSetSource != .noConfigSet
@@ -150,41 +150,6 @@ final class ConfigStore: Sendable {
         logger.debug("Config state received from the server: \(keys), removed: \(merged.removedKeys)")
     }
 
-    func value<Value: ConfigValue>(for key: String, default defaultValue: Value) -> Value {
-        evaluate(key: key, default: defaultValue) {
-            ConfigValueParser.parse($0, default: defaultValue)
-        }
-    }
-
-    func value<Value: Decodable & Sendable>(
-        for key: String,
-        as type: Value.Type,
-        default defaultValue: Value
-    ) -> Value {
-        evaluate(key: key, default: defaultValue) {
-            ConfigValueParser.parseJSON($0, as: type, default: defaultValue)
-        }
-    }
-
-    func values<Value: ConfigValue>(
-        for key: String,
-        default defaultValue: Value
-    ) -> AsyncStream<Value> {
-        watchers.stream(for: key) { [weak self] in
-            self?.value(for: key, default: defaultValue) ?? defaultValue
-        }
-    }
-
-    func values<Value: Decodable & Sendable & Equatable>(
-        for key: String,
-        as type: Value.Type,
-        default defaultValue: Value
-    ) -> AsyncStream<Value> {
-        watchers.stream(for: key) { [weak self] in
-            self?.value(for: key, as: type, default: defaultValue) ?? defaultValue
-        }
-    }
-
     func close() {
         let waiters = state.withLock { state -> [CheckedContinuation<Void, Never>] in
             state.isClosed = true
@@ -199,50 +164,6 @@ final class ConfigStore: Sendable {
         watchers.finishAll()
         events.finish()
         evaluations.finish()
-    }
-
-    private func evaluate<Value: Sendable>(
-        key: String,
-        default defaultValue: Value,
-        parse: (ConfigState) -> EvaluationResult<Value>
-    ) -> Value {
-        let (configState, isReady, context, source) = state.withLock {
-            ($0.configs[key], $0.isReady, $0.context, $0.configSetSource)
-        }
-
-        let result = (configState.map(parse) ?? EvaluationResult(
-            value: defaultValue,
-            usedDefault: true,
-            reason: isReady ? .configStateMissing : .clientNotReady
-        )).asServedFrom(source)
-
-        telemetry.evaluatedConfig(EvaluatedConfigEvent(
-            contextID: context?.id,
-            key: key,
-            type: configState?.type,
-            defaultValue: TelemetryValue(value: String(describing: defaultValue), type: configState?.type),
-            requestedType: String(describing: Value.self),
-            evaluatedValue: TelemetryValue(
-                value: String(describing: result.value),
-                valueID: result.valueID,
-                type: configState?.type
-            ),
-            evaluatedValueID: result.valueID,
-            usedDefault: result.usedDefault,
-            evaluationReason: result.reason
-        ))
-
-        evaluations.emit(ConfigEvaluation(
-            key: key,
-            value: ConfigEvaluationValue(result.value),
-            valueID: result.valueID,
-            isDefaultValue: result.usedDefault,
-            reason: result.reason,
-            context: context
-        ))
-        logger.debug("Evaluated '\(key)' to '\(result.value)' (\(result.reason.rawValue))")
-
-        return result.value
     }
 
     private func markReady() {
@@ -350,6 +271,91 @@ final class ConfigStore: Sendable {
 
     private func resumeReadyWaiter(_ id: UUID) {
         state.withLock { $0.readyWaiters.removeValue(forKey: id) }?.resume()
+    }
+}
+
+extension ConfigStore {
+    func evaluate<Value: ConfigValue>(
+        _ key: String,
+        default defaultValue: Value
+    ) -> (value: Value, evaluation: ConfigEvaluation) {
+        evaluateAndRecord(key: key, default: defaultValue) {
+            ConfigValueParser.parse($0, default: defaultValue)
+        }
+    }
+
+    func evaluate<Value: Decodable & Sendable>(
+        _ key: String,
+        as type: Value.Type,
+        default defaultValue: Value
+    ) -> (value: Value, evaluation: ConfigEvaluation) {
+        evaluateAndRecord(key: key, default: defaultValue) {
+            ConfigValueParser.parseJSON($0, as: type, default: defaultValue)
+        }
+    }
+
+    func values<Value: ConfigValue>(
+        for key: String,
+        default defaultValue: Value
+    ) -> AsyncStream<Value> {
+        watchers.stream(for: key) { [weak self] in
+            self?.evaluate(key, default: defaultValue).value ?? defaultValue
+        }
+    }
+
+    func values<Value: Decodable & Sendable & Equatable>(
+        for key: String,
+        as type: Value.Type,
+        default defaultValue: Value
+    ) -> AsyncStream<Value> {
+        watchers.stream(for: key) { [weak self] in
+            self?.evaluate(key, as: type, default: defaultValue).value ?? defaultValue
+        }
+    }
+
+    private func evaluateAndRecord<Value: Sendable>(
+        key: String,
+        default defaultValue: Value,
+        parse: (ConfigState) -> EvaluationResult<Value>
+    ) -> (value: Value, evaluation: ConfigEvaluation) {
+        let (configState, isReady, context, source) = state.withLock {
+            ($0.configs[key], $0.isReady, $0.context, $0.configSetSource)
+        }
+
+        let result = (configState.map(parse) ?? EvaluationResult(
+            value: defaultValue,
+            usedDefault: true,
+            reason: isReady ? .configStateMissing : .clientNotReady
+        )).asServedFrom(source)
+
+        telemetry.evaluatedConfig(EvaluatedConfigEvent(
+            contextID: context?.id,
+            key: key,
+            type: configState?.type,
+            defaultValue: TelemetryValue(value: String(describing: defaultValue), type: configState?.type),
+            requestedType: String(describing: Value.self),
+            evaluatedValue: TelemetryValue(
+                value: String(describing: result.value),
+                valueID: result.valueID,
+                type: configState?.type
+            ),
+            evaluatedValueID: result.valueID,
+            usedDefault: result.usedDefault,
+            evaluationReason: result.reason
+        ))
+
+        let evaluation = ConfigEvaluation(
+            key: key,
+            value: ConfigEvaluationValue(result.value),
+            valueID: result.valueID,
+            isDefaultValue: result.usedDefault,
+            reason: result.reason,
+            context: context
+        )
+        evaluations.emit(evaluation)
+        logger.debug("Evaluated '\(key)' to '\(result.value)' (\(result.reason.rawValue))")
+
+        return (result.value, evaluation)
     }
 }
 

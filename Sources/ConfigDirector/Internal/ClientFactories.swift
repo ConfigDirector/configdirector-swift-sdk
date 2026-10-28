@@ -113,7 +113,7 @@ struct ClientComponents {
                 pollingInterval: live.pollingInterval,
                 session: dependencies.session
             ),
-            { [store] configSet in store.handleConfigSet(configSet) }
+            { [store] configSet in store.applyReceivedConfigSet(configSet) }
         )
         return ClientComponents(
             telemetry: telemetry,
@@ -130,7 +130,7 @@ struct ClientComponents {
         let telemetry = DiscardingTelemetry()
         let store = ConfigStore(logger: options.logger, telemetry: telemetry, caching: .keepNothing)
         let transport = OfflineTransport(configs: configs) { [store] configSet in
-            store.handleConfigSet(configSet)
+            store.applyReceivedConfigSet(configSet)
         }
         return ClientComponents(
             telemetry: telemetry,

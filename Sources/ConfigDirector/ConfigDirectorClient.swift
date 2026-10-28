@@ -24,7 +24,7 @@ public final class ConfigDirectorClient: Sendable {
     private let logger: any ConfigDirectorLogger
     private let timeout: TimeInterval
     private let pausesWhileBackgrounded: Bool
-    private let store: ConfigStore
+    let store: ConfigStore
     private let transport: any Transport
     private let telemetry: any TelemetryClient
     private let lifecycle: any AppLifecycleObserver
@@ -131,7 +131,7 @@ public final class ConfigDirectorClient: Sendable {
         transport = components.transport
         self.lifecycle = components.lifecycle
 
-        self.lifecycle.start { [weak self] phase in self?.handle(phase) }
+        self.lifecycle.start { [weak self] phase in self?.appDidEnter(phase) }
     }
 
     /// The context the client is currently evaluating configs against, or `nil` when there is none,
@@ -178,9 +178,9 @@ public final class ConfigDirectorClient: Sendable {
 
     /// Every config evaluation the client makes, from the moment this stream is created.
     ///
-    /// One is published for every read, whether by ``value(for:default:)`` or by a
-    /// ``values(for:default:)`` stream, so reading a config from a SwiftUI `body` publishes one per
-    /// frame. Each access returns an independent stream.
+    /// One is published for every read, whether by ``value(for:default:)``, by
+    /// ``evaluate(_:default:)`` or by a ``values(for:default:)`` stream, so reading a config from a
+    /// SwiftUI `body` publishes one per frame. Each access returns an independent stream.
     ///
     /// Do not update view state straight from this stream: the state change re-renders the view,
     /// which reads the config again, which publishes another evaluation.
@@ -223,61 +223,6 @@ public final class ConfigDirectorClient: Sendable {
     /// In ``ConnectionMode/offline`` mode the new context takes effect at once and no value changes.
     public func updateContext(_ context: ConfigDirectorContext) async {
         await connect(context: context, reason: .contextUpdate)
-    }
-
-    /// Evaluates `key` against the current context and targeting rules.
-    ///
-    /// Returns `defaultValue` when config state is unavailable — for instance when called before
-    /// initialization completes, or when the served value cannot be represented as `Value`.
-    public func value<Value: ConfigValue>(for key: String, default defaultValue: Value) -> Value {
-        store.value(for: key, default: defaultValue)
-    }
-
-    /// Evaluates a JSON config, decoding it into `type`.
-    ///
-    /// Returns `defaultValue` when config state is unavailable, when the config is not a JSON config,
-    /// or when its document cannot be decoded into `type`.
-    ///
-    /// ```swift
-    /// let theme = client.value(for: "theme", as: Theme.self, default: .fallback)
-    /// ```
-    public func value<Value: Decodable & Sendable>(
-        for key: String,
-        as type: Value.Type,
-        default defaultValue: Value
-    ) -> Value {
-        store.value(for: key, as: type, default: defaultValue)
-    }
-
-    /// Watches `key` for changes, which can come from an update in the ConfigDirector dashboard or
-    /// from a call to ``updateContext(_:)``.
-    ///
-    /// The stream yields the config's current value immediately and then every time the evaluated
-    /// value changes. Consecutive identical values are not re-emitted. When a full update no longer
-    /// carries `key`, the stream yields `defaultValue`, as ``value(for:default:)`` would now return
-    /// it. Cancelling the consuming task stops watching.
-    ///
-    /// ```swift
-    /// .task {
-    ///     for await darkMode in client.values(for: "dark-mode", default: false) {
-    ///         self.darkMode = darkMode
-    ///     }
-    /// }
-    /// ```
-    public func values<Value: ConfigValue>(
-        for key: String,
-        default defaultValue: Value
-    ) -> AsyncStream<Value> {
-        store.values(for: key, default: defaultValue)
-    }
-
-    /// Watches a JSON config for changes, decoding each value into `type`.
-    public func values<Value: Decodable & Sendable & Equatable>(
-        for key: String,
-        as type: Value.Type,
-        default defaultValue: Value
-    ) -> AsyncStream<Value> {
-        store.values(for: key, as: type, default: defaultValue)
     }
 
     /// Pauses the network connection without discarding config state, event streams, or watch
@@ -364,7 +309,7 @@ public final class ConfigDirectorClient: Sendable {
         }
     }
 
-    private func handle(_ phase: AppLifecyclePhase) {
+    private func appDidEnter(_ phase: AppLifecyclePhase) {
         switch phase {
         case .background:
             Task { [telemetry] in await telemetry.flush() }

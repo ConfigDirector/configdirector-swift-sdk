@@ -8,6 +8,11 @@ version can be tagged. See [Releasing](CONTRIBUTING.md#releasing).
 
 ## [Unreleased]
 
+### Added
+
+- An `evaluate` read that returns a config's value together with the reason it was served and its
+  value ID, the same evaluation the `evaluations` stream reports.
+
 ### Fixed
 
 - The values the client keeps on the device, in the app's `UserDefaults` or a `CachingProvider` of
