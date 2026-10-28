@@ -8,6 +8,8 @@ version can be tagged. See [Releasing](CONTRIBUTING.md#releasing).
 
 ## [Unreleased]
 
+## [1.10.0] - 2026-10-27
+
 ### Added
 
 - An `evaluate` read that returns a config's value together with the reason it was served and its
