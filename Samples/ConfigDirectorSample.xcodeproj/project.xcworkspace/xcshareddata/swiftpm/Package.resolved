@@ -6,8 +6,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/ConfigDirector/configdirector-swift-sdk.git",
       "state" : {
-        "revision" : "2bec1762492935388dc9b6c49a6eb328247c818b",
-        "version" : "1.9.1"
+        "revision" : "ed746236867010ef6a77cddb94fa36fa9d8b8611",
+        "version" : "1.10.0"
       }
     }
   ],
