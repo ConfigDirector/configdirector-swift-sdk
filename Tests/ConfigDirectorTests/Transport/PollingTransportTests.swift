@@ -61,6 +61,22 @@ struct PollingTransportTests {
         #expect(fixture.recorded.last?.payload?.lastUpdateTimestamp == "2026-08-29T00:00:00Z")
     }
 
+    @Test func sendsNoTimestampOnTheFirstFetchOfALaterConnect() async throws {
+        let (fixture, transport) = makeTransport()
+        defer { transport.close() }
+        fixture.enqueue(
+            .json(configSetJSON(greeting: "one", timestamp: "2026-08-29T00:00:00Z")),
+            .json(configSetJSON(greeting: "two"))
+        )
+
+        try await transport.connect(context: ConfigDirectorContext(id: "user-a"), timeout: 1)
+        try await transport.connect(context: ConfigDirectorContext(id: "user-b"), timeout: 1)
+
+        #expect(fixture.recorded.count == 2)
+        #expect(fixture.recorded.last?.payload?.givenContext.id == "user-b")
+        #expect(fixture.recorded.last?.payload?.lastUpdateTimestamp == nil)
+    }
+
     @Test func throwsAndStopsPollingWhenTheServerRejectsTheRequest() async throws {
         let (fixture, transport) = makeTransport(pollingInterval: 0.05)
         defer { transport.close() }

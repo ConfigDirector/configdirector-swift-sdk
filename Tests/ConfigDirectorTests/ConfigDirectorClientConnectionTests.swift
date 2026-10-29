@@ -337,4 +337,42 @@ struct ConfigDirectorClientConnectionTests {
         #expect(ready != nil)
         #expect(fixture.pollRequests.last?.payload?.givenContext.id == "after")
     }
+
+    @Test func pollingModeServesTheNewContextsValuesWhenNoConfigChanged() async throws {
+        let fixture = ClientFixture()
+        fixture.answerTimestampedPollsWithNoChange()
+        fixture.servePolling(
+            configSetJSON([ServedConfig("plan", "string", "free")], timestamp: "2026-10-29T00:00:00Z"),
+            configSetJSON([ServedConfig("plan", "string", "pro")], timestamp: "2026-10-29T00:00:00Z")
+        )
+        let client = try fixture.makeClient(mode: .polling)
+        defer { client.close() }
+        await client.initialize(context: ConfigDirectorContext(id: "user-a"))
+
+        await client.updateContext(ConfigDirectorContext(id: "user-b"))
+
+        #expect(client.context?.id == "user-b")
+        #expect(client.isReady)
+        #expect(client.value(for: "plan", default: "") == "pro")
+    }
+
+    @Test func pollingModeIsReadyAgainAfterAResumeWhenNoConfigChanged() async throws {
+        let fixture = ClientFixture()
+        fixture.answerTimestampedPollsWithNoChange()
+        let configSet = configSetJSON(
+            [ServedConfig("plan", "string", "free")],
+            timestamp: "2026-10-29T00:00:00Z"
+        )
+        fixture.servePolling(configSet, configSet)
+        let client = try fixture.makeClient(mode: .polling)
+        defer { client.close() }
+        await client.initialize(context: ConfigDirectorContext(id: "user-123"))
+
+        client.pauseNetwork()
+        #expect(client.isReady == false)
+
+        await client.resumeNetwork()
+
+        #expect(client.isReady)
+    }
 }

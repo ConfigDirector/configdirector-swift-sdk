@@ -8,6 +8,16 @@ version can be tagged. See [Releasing](CONTRIBUTING.md#releasing).
 
 ## [Unreleased]
 
+### Fixed
+
+- In polling mode, `updateContext(_:)` and `resumeNetwork()` now always get the values for their
+  context. Before, when no config had changed since the client last got values, `updateContext(_:)`
+  kept serving the previous context's values under the new context until a config changed, and
+  returned at its timeout with a timeout warning. After `resumeNetwork()`, or the app coming back to
+  the foreground, `isReady` stayed false, with a timeout warning, until a config changed. Each
+  `updateContext(_:)` and `resumeNetwork()` now downloads the full set of configs, as `initialize`
+  already did, and publishes `configsUpdated` with every config's key.
+
 ## [1.10.0] - 2026-10-27
 
 ### Added

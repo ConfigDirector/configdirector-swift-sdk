@@ -114,6 +114,10 @@ final class ClientFixture: Sendable {
         StubURLProtocol.enqueue(configSets.map { .json($0) }, for: pollURL)
     }
 
+    func answerTimestampedPollsWithNoChange() {
+        StubURLProtocol.answerTimestampedRequestsWithNoChange(for: pollURL)
+    }
+
     var streamRequests: [StubURLProtocol.RecordedRequest] {
         StubURLProtocol.recorded(for: streamURL)
     }

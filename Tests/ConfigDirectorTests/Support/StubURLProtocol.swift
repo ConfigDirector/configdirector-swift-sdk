@@ -28,6 +28,7 @@ final class StubURLProtocol: URLProtocol {
         var queues: [String: [Response]] = [:]
         var recorded: [String: [RecordedRequest]] = [:]
         var cancelled: [String: Int] = [:]
+        var urlsWithNoChangeSinceTimestamp: Set<String> = []
     }
 
     private static let state = Locked(State())
@@ -38,6 +39,10 @@ final class StubURLProtocol: URLProtocol {
 
     static func enqueue(_ responses: [Response], for url: URL) {
         state.withLock { $0.queues[url.absoluteString, default: []].append(contentsOf: responses) }
+    }
+
+    static func answerTimestampedRequestsWithNoChange(for url: URL) {
+        state.withLock { _ = $0.urlsWithNoChangeSinceTimestamp.insert(url.absoluteString) }
     }
 
     static func recorded(for url: URL) -> [RecordedRequest] {
@@ -110,15 +115,19 @@ final class StubURLProtocol: URLProtocol {
         let key = request.url?.absoluteString ?? ""
 
         return state.withLock { state in
-            state.recorded[key, default: []].append(
-                RecordedRequest(
-                    method: request.httpMethod,
-                    headers: request.allHTTPHeaderFields ?? [:],
-                    body: body(of: request),
-                    timeout: request.timeoutInterval,
-                    cachePolicy: request.cachePolicy
-                )
+            let recordedRequest = RecordedRequest(
+                method: request.httpMethod,
+                headers: request.allHTTPHeaderFields ?? [:],
+                body: body(of: request),
+                timeout: request.timeoutInterval,
+                cachePolicy: request.cachePolicy
             )
+            state.recorded[key, default: []].append(recordedRequest)
+
+            let carriesATimestamp = recordedRequest.payload?.lastUpdateTimestamp != nil
+            if carriesATimestamp, state.urlsWithNoChangeSinceTimestamp.contains(key) {
+                return .json("", statusCode: 204)
+            }
 
             guard var queue = state.queues[key], !queue.isEmpty else {
                 return Response(endsStream: false)

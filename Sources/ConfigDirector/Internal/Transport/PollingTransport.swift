@@ -60,13 +60,14 @@ final class PollingTransport: Transport {
 
     @discardableResult
     private func endCurrentConnection() -> Int {
-        let (polling, generation) = state.withLock { state -> (Task<Void, Never>?, Int) in
+        let (pollingToCancel, generation) = state.withLock { state -> (Task<Void, Never>?, Int) in
             state.connectionGeneration += 1
-            let running = state.polling
+            state.lastUpdateTimestamp = nil
+            let pollingToCancel = state.polling
             state.polling = nil
-            return (running, state.connectionGeneration)
+            return (pollingToCancel, state.connectionGeneration)
         }
-        polling?.cancel()
+        pollingToCancel?.cancel()
         return generation
     }
 
@@ -89,13 +90,13 @@ final class PollingTransport: Transport {
                 }
             }
         }
-        let superseded = state.withLock { state -> Task<Void, Never>? in
+        let pollingToCancel = state.withLock { state -> Task<Void, Never>? in
             guard state.connectionGeneration == generation else { return polling }
             let previous = state.polling
             state.polling = polling
             return previous
         }
-        superseded?.cancel()
+        pollingToCancel?.cancel()
     }
 
     private func fetch(context: ConfigDirectorContext, timeout: TimeInterval) async throws {
