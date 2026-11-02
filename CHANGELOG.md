@@ -8,6 +8,8 @@ version can be tagged. See [Releasing](CONTRIBUTING.md#releasing).
 
 ## [Unreleased]
 
+## [1.10.1] - 2026-11-01
+
 ### Fixed
 
 - In polling mode, `updateContext(_:)` and `resumeNetwork()` now always get the values for their
