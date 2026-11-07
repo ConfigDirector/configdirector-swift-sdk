@@ -8,6 +8,8 @@ version can be tagged. See [Releasing](CONTRIBUTING.md#releasing).
 
 ## [Unreleased]
 
+## [1.11.0] - 2026-11-06
+
 ### Added
 
 - `evaluate` and the `evaluations` stream now carry `variation`: the `id` and `name` of the variation
