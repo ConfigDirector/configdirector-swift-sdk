@@ -116,18 +116,47 @@ extension StubURLProtocol.Response {
     }
 }
 
+struct ServedVariation: Encodable, Sendable {
+    var id: String
+    var name: String?
+
+    private enum CodingKeys: String, CodingKey {
+        case id, name
+    }
+
+    func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(name, forKey: .name)
+    }
+}
+
 /// A config in a config set the stubbed server serves.
 struct ServedConfig: Sendable {
     var key: String
     var type: String
     var value: String?
     var valueID: String?
+    var variation: ServedVariation?
+    var ruleID: String?
+    var shareID: String?
 
-    init(_ key: String, _ type: String, _ value: String?, valueID: String? = nil) {
+    init(
+        _ key: String,
+        _ type: String,
+        _ value: String?,
+        valueID: String? = nil,
+        variation: ServedVariation? = nil,
+        ruleID: String? = nil,
+        shareID: String? = nil
+    ) {
         self.key = key
         self.type = type
         self.value = value
         self.valueID = valueID
+        self.variation = variation
+        self.ruleID = ruleID
+        self.shareID = shareID
     }
 }
 
@@ -146,7 +175,10 @@ func configSetJSON(
                 key: config.key,
                 type: config.type,
                 value: config.value,
-                valueId: config.valueID
+                valueId: config.valueID,
+                variation: config.variation,
+                ruleId: config.ruleID,
+                shareId: config.shareID
             ))
         })
     ))
@@ -172,6 +204,9 @@ private struct ServedConfigSet: Encodable {
         var type: String
         var value: String?
         var valueId: String?
+        var variation: ServedVariation?
+        var ruleId: String?
+        var shareId: String?
     }
 
     var environmentId = "env"

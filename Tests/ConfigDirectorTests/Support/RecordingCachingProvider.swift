@@ -98,12 +98,20 @@ struct StoredCachedValuesEntry: Decodable {
         var anonymousInstanceId: String?
     }
 
+    struct Variation: Decodable {
+        var id: String
+        var name: String?
+    }
+
     struct Config: Decodable {
         var id: String
         var key: String
         var type: String
         var value: String?
         var valueId: String?
+        var variation: Variation?
+        var ruleId: String?
+        var shareId: String?
     }
 
     var formatVersion: Int

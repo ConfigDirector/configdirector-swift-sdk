@@ -111,6 +111,17 @@ struct TestClientValueTests {
         #expect(evaluation.reason == .configStateMissing)
     }
 
+    @Test func aServedValueHasNoVariation() async {
+        let testClient = fixture.makeTestClient(values: ["flag": true])
+        defer { testClient.client.close() }
+        await testClient.client.initialize()
+
+        let (value, evaluation) = testClient.client.evaluate("flag", default: false)
+
+        #expect(value == true)
+        #expect(evaluation.variation == nil)
+    }
+
     @Test func s32ReplaceValuesServesExactlyTheNewValues() async throws {
         let testClient = fixture.makeTestClient(values: ["a": 1, "b": 2])
         defer { testClient.client.close() }

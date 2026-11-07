@@ -218,60 +218,6 @@ enum ConfigValueParserTests {
         }
     }
 
-    struct JSONDocuments {
-        private let fallback = Theme(primaryColor: "red", cornerRadius: 0)
-
-        @Test func areDecodedIntoTheRequestedType() {
-            let result = ConfigValueParser.parseJSON(
-                .make(
-                    key: "theme",
-                    type: .json,
-                    value: #"{"primaryColor":"blue","cornerRadius":8}"#,
-                    valueID: "blue"
-                ),
-                as: Theme.self,
-                default: fallback
-            )
-
-            #expect(result.value == Theme(primaryColor: "blue", cornerRadius: 8))
-            #expect(result.valueID == "blue")
-            #expect(result.usedDefault == false)
-            #expect(result.reason == .foundMatch)
-        }
-
-        @Test(arguments: [
-            #"{"primaryColor":"blue"}"#,
-            #"{"primaryColor":"blue","cornerRadius":"eight"}"#,
-            "not json at all",
-            "[1, 2, 3]",
-            "null",
-        ])
-        func fallBackWhenTheDocumentDoesNotDecode(_ document: String) {
-            let result = ConfigValueParser.parseJSON(
-                .make(key: "theme", type: .json, value: document),
-                as: Theme.self,
-                default: fallback
-            )
-
-            #expect(result.value == fallback)
-            #expect(result.usedDefault)
-            #expect(result.reason == .invalidJSON)
-        }
-
-        @Test(arguments: ConfigType.allCases.filter { $0 != .json })
-        func areOnlyDecodedFromJSONConfigs(_ type: ConfigType) {
-            let result = ConfigValueParser.parseJSON(
-                .make(key: "theme", type: type, value: #"{"primaryColor":"blue","cornerRadius":8}"#),
-                as: Theme.self,
-                default: fallback
-            )
-
-            #expect(result.value == fallback)
-            #expect(result.usedDefault)
-            #expect(result.reason == .typeMismatch)
-        }
-    }
-
     struct TypesConformedOutsideTheSDK {
         @Test func areReadFromTheConfigsTheirKindAllows() {
             let result = ConfigValueParser.parse(

@@ -8,6 +8,27 @@ version can be tagged. See [Releasing](CONTRIBUTING.md#releasing).
 
 ## [Unreleased]
 
+### Added
+
+- `evaluate` and the `evaluations` stream now carry `variation`: the `id` and `name` of the variation
+  that was served. It is `nil` when the config has no variations or the in-code default value is
+  returned, and an unnamed variation has a `nil` `name`. The new `Variation` type is public.
+
+### Changed
+
+- The evaluation counts the SDK sends to ConfigDirector now say which variation was served, and which
+  percentage rollout and share served it, so ConfigDirector can count the contexts each variation of
+  an experiment reached. This holds for values kept on the device as well; values kept by an earlier
+  version carry none of this until live values arrive.
+- `EvaluationReason` gains `rolloutSkippedNoIdentifier`. Only server SDKs report it and this SDK never
+  returns it, but a `switch` over every `EvaluationReason` needs a case for it. The Swift OpenFeature
+  provider up to 1.5.0 has such a `switch` and does not compile against this version, so upgrade the
+  provider along with the SDK.
+- A JSON config whose value is valid JSON but does not decode into the type you read it as now
+  evaluates with the reason `typeMismatch`, as a value of another type does in the JavaScript and
+  Flutter SDKs. Before, it evaluated with `invalidJSON`, which now means the value is not valid JSON.
+  You still receive the in-code default value.
+
 ## [1.10.1] - 2026-11-01
 
 ### Fixed

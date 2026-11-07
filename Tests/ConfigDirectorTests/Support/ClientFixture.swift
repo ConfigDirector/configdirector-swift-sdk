@@ -268,6 +268,9 @@ struct TelemetryReport: Decodable, Sendable {
         var evaluatedValueId: String?
         var usedDefault: Bool
         var evaluationReason: String
+        var ruleId: String?
+        var shareId: String?
+        var variationId: String?
     }
 
     struct AggregatedInvalidContextSubmission: Decodable, Sendable {

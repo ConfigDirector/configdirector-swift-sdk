@@ -71,6 +71,9 @@ struct EvaluatedConfigEvent: Hashable, Sendable {
 
     var usedDefault: Bool
     var evaluationReason: EvaluationReason
+    var ruleID: String?
+    var shareID: String?
+    var variationID: String?
 
     func compacted() -> EvaluatedConfigEvent {
         var compacted = self
@@ -85,6 +88,9 @@ extension EvaluatedConfigEvent: Encodable {
         case key, type, defaultValue, requestedType, evaluatedValue, usedDefault, evaluationReason
         case contextID = "contextId"
         case evaluatedValueID = "evaluatedValueId"
+        case ruleID = "ruleId"
+        case shareID = "shareId"
+        case variationID = "variationId"
     }
 
     func encode(to encoder: any Encoder) throws {
@@ -98,6 +104,9 @@ extension EvaluatedConfigEvent: Encodable {
         try container.encodeIfPresent(evaluatedValueID, forKey: .evaluatedValueID)
         try container.encode(usedDefault, forKey: .usedDefault)
         try container.encode(evaluationReason.rawValue, forKey: .evaluationReason)
+        try container.encodeIfPresent(ruleID, forKey: .ruleID)
+        try container.encodeIfPresent(shareID, forKey: .shareID)
+        try container.encodeIfPresent(variationID, forKey: .variationID)
     }
 }
 

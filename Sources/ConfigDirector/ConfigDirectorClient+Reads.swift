@@ -30,9 +30,9 @@ public extension ConfigDirectorClient {
     ///
     /// The returned `value` is what ``value(for:default:)`` returns, so it is `defaultValue` whenever
     /// the config could not be served as `Value`, and the evaluation's ``ConfigEvaluation/reason``
-    /// says why. Use this where the reason matters at the point of the read; ``value(for:default:)``
-    /// is enough everywhere else. Like every read, it publishes the evaluation on ``evaluations`` and
-    /// reports it in telemetry.
+    /// says why. Use this where the reason or the ``ConfigEvaluation/variation`` matters at the point
+    /// of the read; ``value(for:default:)`` is enough everywhere else. Like every read, it publishes
+    /// the evaluation on ``evaluations`` and reports it in telemetry.
     ///
     /// ```swift
     /// let (darkMode, evaluation) = client.evaluate("dark-mode", default: false)

@@ -341,13 +341,17 @@ extension ConfigStore {
             ),
             evaluatedValueID: result.valueID,
             usedDefault: result.usedDefault,
-            evaluationReason: result.reason
+            evaluationReason: result.reason,
+            ruleID: result.ruleID,
+            shareID: result.shareID,
+            variationID: result.variation?.id
         ))
 
         let evaluation = ConfigEvaluation(
             key: key,
             value: ConfigEvaluationValue(result.value),
             valueID: result.valueID,
+            variation: result.variation,
             isDefaultValue: result.usedDefault,
             reason: result.reason,
             context: context

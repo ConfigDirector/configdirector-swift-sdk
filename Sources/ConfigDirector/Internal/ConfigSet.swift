@@ -30,9 +30,15 @@ struct ConfigState: Sendable, Equatable, Codable {
     /// An opaque identifier of the evaluated value, used for telemetry.
     var valueID: String?
 
+    var variation: Variation?
+    var ruleID: String?
+    var shareID: String?
+
     private enum CodingKeys: String, CodingKey {
-        case id, key, type, value
+        case id, key, type, value, variation
         case valueID = "valueId"
+        case ruleID = "ruleId"
+        case shareID = "shareId"
     }
 
     init(id: String = "", key: String, type: ConfigType, value: String?, valueID: String? = nil) {
@@ -50,6 +56,9 @@ struct ConfigState: Sendable, Equatable, Codable {
         type = try container.decodeIfPresent(ConfigType.self, forKey: .type) ?? .custom
         value = try container.decodeIfPresent(String.self, forKey: .value)
         valueID = try container.decodeIfPresent(String.self, forKey: .valueID)
+        variation = (try? container.decodeIfPresent(PayloadVariation.self, forKey: .variation))?.variation
+        ruleID = try container.decodeIfPresent(String.self, forKey: .ruleID)
+        shareID = try container.decodeIfPresent(String.self, forKey: .shareID)
     }
 
     func encode(to encoder: any Encoder) throws {
@@ -59,6 +68,23 @@ struct ConfigState: Sendable, Equatable, Codable {
         try container.encode(type, forKey: .type)
         try container.encodeIfPresent(value, forKey: .value)
         try container.encodeIfPresent(valueID, forKey: .valueID)
+        try container.encodeIfPresent(variation.map(PayloadVariation.init), forKey: .variation)
+        try container.encodeIfPresent(ruleID, forKey: .ruleID)
+        try container.encodeIfPresent(shareID, forKey: .shareID)
+    }
+}
+
+private struct PayloadVariation: Codable {
+    var id: String
+    var name: String?
+
+    init(_ variation: Variation) {
+        id = variation.id
+        name = variation.name
+    }
+
+    var variation: Variation {
+        Variation(id: id, name: name?.isEmpty == true ? nil : name)
     }
 }
 

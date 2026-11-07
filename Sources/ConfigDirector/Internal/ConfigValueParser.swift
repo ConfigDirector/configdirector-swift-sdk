@@ -3,11 +3,22 @@ import Foundation
 struct EvaluationResult<Value> {
     var value: Value
     var valueID: String?
+    var variation: Variation?
+    var ruleID: String?
+    var shareID: String?
     var usedDefault: Bool
     var reason: EvaluationReason
 
-    static func matched(_ value: Value, valueID: String?) -> Self {
-        Self(value: value, valueID: valueID, usedDefault: false, reason: .foundMatch)
+    static func matched(_ value: Value, servedBy configState: ConfigState) -> Self {
+        Self(
+            value: value,
+            valueID: configState.valueID,
+            variation: configState.variation,
+            ruleID: configState.ruleID,
+            shareID: configState.shareID,
+            usedDefault: false,
+            reason: .foundMatch
+        )
     }
 
     static func usedDefault(_ value: Value, reason: EvaluationReason) -> Self {
@@ -40,7 +51,7 @@ enum ConfigValueParser {
             return .usedDefault(defaultValue, reason: kind.unreadableValueReason)
         }
 
-        return .matched(value, valueID: configState.valueID)
+        return .matched(value, servedBy: configState)
     }
 
     static func parseJSON<Value: Decodable>(
@@ -56,10 +67,12 @@ enum ConfigValueParser {
             return .usedDefault(defaultValue, reason: .typeMismatch)
         }
 
-        guard let decoded = try? JSONDecoder().decode(type, from: Data(rawValue.utf8)) else {
-            return .usedDefault(defaultValue, reason: .invalidJSON)
+        let document = Data(rawValue.utf8)
+        guard let decoded = try? JSONDecoder().decode(type, from: document) else {
+            let parsed = try? JSONSerialization.jsonObject(with: document, options: .fragmentsAllowed)
+            return .usedDefault(defaultValue, reason: parsed == nil ? .invalidJSON : .typeMismatch)
         }
 
-        return .matched(decoded, valueID: configState.valueID)
+        return .matched(decoded, servedBy: configState)
     }
 }
