@@ -13,6 +13,30 @@ version can be tagged. See [Releasing](CONTRIBUTING.md#releasing).
 - `evaluate` and the `evaluations` stream now carry `variation`: the `id` and `name` of the variation
   that was served. It is `nil` when the config has no variations or the in-code default value is
   returned, and an unnamed variation has a `nil` `name`. The new `Variation` type is public.
+- `track(_:options:)` on the client reports to ConfigDirector that something happened for the current
+  context, such as a completed checkout, so ConfigDirector can show it on the live feed and count it
+  for each variation of a running experiment. `options` is a `TrackOptions` with a `value`, an `Int`, a
+  `Double` or a `Decimal` such as an amount of money, a count or a duration, and `details`, a
+  dictionary whose values are strings, numbers, booleans, dates, `nil`, or nested dictionaries and
+  arrays. A `Decimal` is sent with every digit it holds. The new `TrackOptions`, `TrackedEventValue`,
+  `TrackedEventDetails` and `TrackedEventDetailValue` types are public.
+- An event counts for an experiment only when the client's context has an `id`, the one the
+  experiment's config was evaluated for. Before the client has a context, or for a context without an
+  `id`, the event is still reported. An event for a context marked `isAnonymous` goes without its `id`.
+- Tracked events are sent with the next telemetry batch, at most 1,000 per batch; events beyond that
+  are not reported. An event whose name does not have 1 to 150 characters is not reported. Details with
+  more than 20 top-level keys or larger than 1 KB as JSON, and a `value` that is not a finite number,
+  are left out and the event is still reported. Each of these logs one warning per telemetry batch. A
+  date inside details is sent as ISO 8601 text and a number that is not finite as `null`. `track` does
+  nothing in offline mode.
+- The test client from `ConfigDirectorTesting` records the events the code under test tracked in
+  `testClient.trackedEvents`, in call order, as `TrackedEvent(name:context:value:details:)`. An event
+  whose name the SDK would not report is not recorded, a value or details the SDK would leave out are
+  missing from the record, and details hold what the SDK sends, so a date is its ISO 8601 text. The
+  limit of 1,000 events per telemetry batch does not apply to the record. `replaceValues` leaves it
+  alone, so a shared test client clears it with
+  `testClient.trackedEvents.removeAll()`. The new `TrackedEvent` type is public in
+  `ConfigDirectorTesting`.
 
 ### Changed
 
@@ -28,6 +52,11 @@ version can be tagged. See [Releasing](CONTRIBUTING.md#releasing).
   evaluates with the reason `typeMismatch`, as a value of another type does in the JavaScript and
   Flutter SDKs. Before, it evaluated with `invalidJSON`, which now means the value is not valid JSON.
   You still receive the in-code default value.
+
+### Fixed
+
+- A telemetry report larger than ConfigDirector accepts is now discarded with a warning, and the next
+  report is still sent. Before, the SDK stopped sending telemetry until the app restarted.
 
 ## [1.10.1] - 2026-11-01
 

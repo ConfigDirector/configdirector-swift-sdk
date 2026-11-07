@@ -63,6 +63,30 @@ testClient.setValue(false, for: "dark-mode")
 
 `testClient.client` is a `ConfigDirectorClient`, so it goes anywhere your code accepts one. See [Test your code](https://docs.configdirector.com/sdks/mobile/swift#test-your-code) in the documentation for holding and failing initialization, watching values under test, and what to expect.
 
+### Tracked events
+
+`testClient.trackedEvents` holds every event the code under test tracked, in call order, as `TrackedEvent(name:context:value:details:)`, so a test can assert on them:
+
+```swift
+import ConfigDirector
+import ConfigDirectorTesting
+
+let testClient = makeTestClient()
+await testClient.client.initialize(context: ConfigDirectorContext(id: "user-123"))
+
+testClient.client.track("checkout-completed", options: TrackOptions(value: 49.9))
+
+#expect(testClient.trackedEvents == [
+    TrackedEvent(
+        name: "checkout-completed",
+        context: ConfigDirectorContext(id: "user-123"),
+        value: 49.9
+    ),
+])
+```
+
+The record follows the rules of a real report: an event whose name does not have 1 to 150 characters is not recorded, and a value or details the SDK would leave out are missing from the record, with a warning logged each time. Details hold what the SDK sends, so a date is its ISO 8601 text. The limit of 1,000 events per telemetry batch does not apply. A test client shared across tests clears the record with `testClient.trackedEvents.removeAll()`.
+
 ## Documentation
 
 Refer to the [official documentation for the Swift SDK](https://docs.configdirector.com/sdks/mobile/swift).

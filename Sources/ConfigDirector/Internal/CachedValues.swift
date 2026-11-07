@@ -38,10 +38,8 @@ enum ContextTag: Equatable, Sendable {
     case identified(contextKind: String, contextID: String)
     case anonymous(contextKind: String, instanceID: String)
 
-    private static let defaultContextKind = "user"
-
     init(context: ConfigDirectorContext?, instanceID: String) {
-        let contextKind = context?.kind ?? Self.defaultContextKind
+        let contextKind = context?.kind ?? ConfigDirectorContext.defaultKind
         if let contextID = context?.id {
             self = .identified(contextKind: contextKind, contextID: contextID)
         } else {

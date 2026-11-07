@@ -139,6 +139,14 @@ final class ClientFixture: Sendable {
             request.body.flatMap { try? JSONDecoder().decode(TelemetryReport.self, from: Data($0.utf8)) }
         }
     }
+
+    func trackedEvents() -> [TelemetryReport.ReportedTrackedEvent] {
+        telemetryReports().flatMap(\.discreteEvents.trackedEvents)
+    }
+
+    func telemetryBodies() -> [String] {
+        telemetryRequests.compactMap(\.body)
+    }
 }
 
 /// Reports whether the client is observing the app lifecycle, which no notification can show: the
@@ -301,10 +309,28 @@ struct TelemetryReport: Decodable, Sendable {
         var appVersion: String?
     }
 
+    struct ReportedDetailValue: Decodable, Sendable {
+        init(from _: any Decoder) throws {}
+    }
+
+    struct ReportedTrackedEvent: Decodable, Sendable {
+        var name: String
+        var contextKind: String?
+        var contextIdentifier: String?
+        var value: Double?
+        var details: [String: ReportedDetailValue]?
+        var happenedAt: String
+    }
+
+    struct DiscreteEvents: Decodable, Sendable {
+        var trackedEvents: [ReportedTrackedEvent]
+    }
+
     var clientSdkKey: String
     var instanceId: String
     var metaContext: Meta
     var context: SentPayload.Context?
+    var discreteEvents: DiscreteEvents
     var aggregatedEvents: AggregatedEvents
     var droppedEvents: DroppedEvents
 

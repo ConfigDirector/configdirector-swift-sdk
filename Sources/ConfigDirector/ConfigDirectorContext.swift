@@ -3,6 +3,8 @@ import Foundation
 /// The user's context, sent to ConfigDirector and used to evaluate targeting rules. A context can
 /// also stand for another kind of entity, such as a device or an organization, through its ``kind``.
 public struct ConfigDirectorContext: Sendable, Equatable {
+    static let defaultKind = "user"
+
     /// The user's identifier. This should uniquely identify an application user.
     ///
     /// For anonymous users you may generate a UUID, or leave this unset. ConfigDirector then derives

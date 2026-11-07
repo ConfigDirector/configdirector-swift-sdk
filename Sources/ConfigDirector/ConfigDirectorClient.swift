@@ -225,6 +225,33 @@ public final class ConfigDirectorClient: Sendable {
         await connect(context: context, reason: .contextUpdate)
     }
 
+    /// Reports to ConfigDirector that something happened for the current ``context``, such as a
+    /// completed checkout, so it can be counted. The event is sent with the next telemetry batch. It
+    /// does nothing in ``ConnectionMode/offline`` mode.
+    ///
+    /// An event counts for an experiment only when the current context has an
+    /// ``ConfigDirectorContext/id``, the one the experiment's config was evaluated for. Before the
+    /// client has a context, or for a context without one, the event is still reported. An event for
+    /// a context marked ``ConfigDirectorContext/isAnonymous`` goes without its identifier.
+    ///
+    /// A batch holds at most 1,000 events; events beyond that are not reported. `eventName` has 1 to
+    /// 150 characters; an event with any other name is not reported. Each of these logs one warning
+    /// per telemetry batch, and so does a value or details left out as ``TrackOptions`` describes.
+    ///
+    /// ```swift
+    /// client.track(
+    ///     "checkout-completed",
+    ///     options: TrackOptions(value: 49.9, details: ["plan": "pro"])
+    /// )
+    /// ```
+    public func track(_ eventName: String, options: TrackOptions? = nil) {
+        let context = store.context
+        telemetry.trackedEvent(
+            TrackedEventAdmission(name: eventName, context: context, options: options, happenedAt: Date()),
+            context: context
+        )
+    }
+
     /// Pauses the network connection without discarding config state, event streams, or watch
     /// streams. Call ``resumeNetwork()`` to re-establish the connection. It does nothing in
     /// ``ConnectionMode/offline`` mode.

@@ -1,14 +1,14 @@
 import Foundation
 
-final class Locked<Value>: @unchecked Sendable {
+package final class Locked<Value>: @unchecked Sendable {
     private let lock = NSLock()
     private var value: Value
 
-    init(_ value: Value) {
+    package init(_ value: Value) {
         self.value = value
     }
 
-    func withLock<Result>(
+    package func withLock<Result>(
         file: StaticString = #fileID,
         line: UInt = #line,
         _ body: (inout Value) throws -> Result

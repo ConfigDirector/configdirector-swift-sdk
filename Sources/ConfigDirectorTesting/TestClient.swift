@@ -31,11 +31,19 @@ public func makeTestClient(
     timeout: TimeInterval = ConnectionOptions().timeout,
     logger: any ConfigDirectorLogger = ConsoleLogger()
 ) -> TestClient {
-    TestClient(connection: InMemoryConnection(
-        values: values,
-        timeout: timeout,
-        logger: logger
-    ))
+    let trackedEvents = Locked<[TrackedEvent]>([])
+    return TestClient(
+        connection: InMemoryConnection(
+            values: values,
+            timeout: timeout,
+            logger: logger,
+            recordTrackedEvent: { name, context, value, details in
+                let event = TrackedEvent(name: name, context: context, value: value, details: details)
+                trackedEvents.withLock { $0.append(event) }
+            }
+        ),
+        trackedEvents: trackedEvents
+    )
 }
 
 /// The controls of a test client made by ``makeTestClient(values:timeout:logger:)``, and the
@@ -46,9 +54,11 @@ public func makeTestClient(
 /// never held or failed. After `close`, every control is a silent no-op.
 public final class TestClient: Sendable {
     private let connection: InMemoryConnection
+    private let recordedTrackedEvents: Locked<[TrackedEvent]>
 
-    init(connection: InMemoryConnection) {
+    init(connection: InMemoryConnection, trackedEvents: Locked<[TrackedEvent]>) {
         self.connection = connection
+        recordedTrackedEvents = trackedEvents
     }
 
     /// The client under test. It is a `ConfigDirectorClient` like any other, so it
@@ -63,6 +73,23 @@ public final class TestClient: Sendable {
     /// context kind, since the client connects without it. `resumeNetwork` is not recorded.
     public var contextUpdates: [ConfigDirectorContext] {
         connection.contextUpdates
+    }
+
+    /// Every event the code under test tracked through ``client``, in call order, with the context
+    /// the client had at that moment, as the SDK would report it: an event whose name does not have
+    /// 1 to 150 characters is not recorded, a value or details the SDK would leave out are missing
+    /// from the record, and details hold what the SDK sends, so a date is its ISO 8601 text and a
+    /// number that is not finite is `nil`.
+    ///
+    /// Since the test client sends no telemetry, the limit of 1,000 events per telemetry batch does
+    /// not apply, and a warning is logged every time something is left out, not once per batch.
+    ///
+    /// Reading this gives a copy, so read it again after the code under test tracks more.
+    /// ``replaceValues(_:)`` leaves the record alone, so a test client shared across tests clears it
+    /// with `testClient.trackedEvents.removeAll()`.
+    public var trackedEvents: [TrackedEvent] {
+        get { recordedTrackedEvents.withLock { $0 } }
+        set { recordedTrackedEvents.withLock { $0 = newValue } }
     }
 
     package var isHoldingAnAttempt: Bool {

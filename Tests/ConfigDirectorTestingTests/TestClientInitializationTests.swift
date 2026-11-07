@@ -233,6 +233,7 @@ struct TestClientInitializationTests {
         #expect(client.value(for: "count", default: 0) == 2)
         testClient.setValue(false, for: "flag")
         #expect(client.value(for: "flag", default: true) == false)
+        client.track("checkout-completed", options: TrackOptions(value: 49.9))
 
         client.close()
         _ = await waitUntil(timeout: 0.5) { InMemoryConnection.recordedRequestCount > 0 }

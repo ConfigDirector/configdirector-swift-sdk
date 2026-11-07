@@ -73,6 +73,7 @@ struct EventReporterTests {
                 droppedCount: droppedCount
             ),
             invalidContextSubmissions: invalidContextSubmissions,
+            trackedEvents: [],
             context: ConfigDirectorContext(id: "user-1")
         )
     }

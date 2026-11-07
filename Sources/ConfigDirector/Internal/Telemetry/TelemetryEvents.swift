@@ -165,3 +165,11 @@ extension Date {
         formatted(telemetryTimestampStyle)
     }
 }
+
+extension JSONEncoder {
+    static func forTelemetryReports() -> JSONEncoder {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .withoutEscapingSlashes
+        return encoder
+    }
+}

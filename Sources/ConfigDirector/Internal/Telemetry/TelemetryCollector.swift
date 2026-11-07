@@ -21,6 +21,8 @@ protocol TelemetryClient: Sendable {
 
     func recordInvalidContextSubmission(contextKindSample: String)
 
+    func trackedEvent(_ admission: TrackedEventAdmission, context: ConfigDirectorContext?)
+
     /// Reports the events collected so far against the previous context, and attributes the ones
     /// collected from now on to `context`.
     func updateContext(_ context: ConfigDirectorContext?)
@@ -50,6 +52,7 @@ final class TelemetryEventCollector: TelemetryClient {
     private let options: TelemetryOptions
     private let queue: EventQueue<EvaluatedConfigEvent>
     private let invalidContextSubmissions = InvalidContextSubmissions()
+    private let trackedEvents = TrackedEventQueue()
     private let flushes = SerialAsyncQueue()
     private let state = Locked(State())
 
@@ -78,6 +81,17 @@ final class TelemetryEventCollector: TelemetryClient {
     func recordInvalidContextSubmission(contextKindSample: String) {
         guard state.withLock({ $0.isCollecting }) else { return }
         invalidContextSubmissions.record(contextKindSample: contextKindSample)
+    }
+
+    func trackedEvent(_ admission: TrackedEventAdmission, context _: ConfigDirectorContext?) {
+        guard state.withLock({ $0.isCollecting }) else { return }
+
+        for warning in trackedEvents.add(admission) {
+            logger.warn("""
+            \(warning.message) Further tracked events like it are not logged until the next telemetry \
+            batch is sent.
+            """)
+        }
     }
 
     func updateContext(_ context: ConfigDirectorContext?) {
@@ -112,8 +126,7 @@ final class TelemetryEventCollector: TelemetryClient {
         Task { [self] in
             await enqueueReport(pending)
             reporter.close()
-            queue.clear()
-            invalidContextSubmissions.clear()
+            discardCollectedEvents()
         }
     }
 
@@ -121,6 +134,7 @@ final class TelemetryEventCollector: TelemetryClient {
         let report = EventReport(
             snapshot: queue.takeSnapshot(),
             invalidContextSubmissions: invalidContextSubmissions.takeAggregated(),
+            trackedEvents: trackedEvents.takeBatch(),
             context: state.withLock { $0.context }
         )
         return report.isEmpty ? nil : report
@@ -149,13 +163,18 @@ final class TelemetryEventCollector: TelemetryClient {
         }
         timer?.cancel()
 
-        queue.clear()
-        invalidContextSubmissions.clear()
+        discardCollectedEvents()
         reporter.close()
         logger.warn("""
         [TelemetryEventCollector] Received a fatal error while reporting telemetry. No longer \
         collecting events.
         """)
+    }
+
+    private func discardCollectedEvents() {
+        queue.clear()
+        invalidContextSubmissions.clear()
+        trackedEvents.clear()
     }
 
     private func restartTimer() {

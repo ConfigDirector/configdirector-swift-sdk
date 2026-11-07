@@ -151,6 +151,21 @@ struct ConfigDirectorClientOfflineTests {
         #expect(fixture.telemetryRequests.isEmpty)
     }
 
+    @Test func trackSendsNothingAndLogsNothing() async throws {
+        let logger = RecordingLogger()
+        let fixture = ClientFixture()
+        let client = try fixture.makeClient(mode: .offline, values: offlineValues, logger: logger)
+        defer { client.close() }
+        await client.initialize(context: ConfigDirectorContext(id: "user-1"))
+
+        client.track("checkout-completed", options: TrackOptions(value: 49.9))
+        client.track("")
+        await settle(0.3)
+
+        #expect(fixture.telemetryRequests.isEmpty)
+        #expect(logger.warnings.isEmpty)
+    }
+
     @Test func doesNotObserveTheAppLifecycle() async throws {
         let fixture = ClientFixture()
         let observer = RecordingLifecycleObserver()

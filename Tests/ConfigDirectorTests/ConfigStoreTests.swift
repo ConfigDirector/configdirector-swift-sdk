@@ -13,6 +13,8 @@ private final class RecordingTelemetry: TelemetryClient {
 
     func recordInvalidContextSubmission(contextKindSample _: String) {}
 
+    func trackedEvent(_: TrackedEventAdmission, context _: ConfigDirectorContext?) {}
+
     func updateContext(_ context: ConfigDirectorContext?) {
         contexts.withLock { $0.append(context) }
     }

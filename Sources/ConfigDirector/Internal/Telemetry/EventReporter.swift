@@ -3,10 +3,11 @@ import Foundation
 struct EventReport: Sendable {
     var snapshot: EventQueueSnapshot<EvaluatedConfigEvent>
     var invalidContextSubmissions: [AggregatedEvent<InvalidContextSubmission>]
+    var trackedEvents: [TrackedEventEntry]
     var context: ConfigDirectorContext?
 
     var isEmpty: Bool {
-        snapshot.isEmpty && invalidContextSubmissions.isEmpty
+        snapshot.isEmpty && invalidContextSubmissions.isEmpty && trackedEvents.isEmpty
     }
 }
 
@@ -32,6 +33,8 @@ final class HTTPEventReporter: EventReporter {
     private struct State {
         var isStopped = false
     }
+
+    private static let reportTooLargeStatus = 413
 
     private let clientSDKKey: String
     private let instanceID: String
@@ -74,11 +77,12 @@ final class HTTPEventReporter: EventReporter {
 
         let body: Data
         do {
-            body = try JSONEncoder().encode(TelemetryPayload(
+            body = try JSONEncoder.forTelemetryReports().encode(TelemetryPayload(
                 clientSDKKey: clientSDKKey,
                 instanceID: instanceID,
                 metaContext: metaContext,
                 context: report.context,
+                discreteEvents: .init(trackedEvents: report.trackedEvents),
                 aggregatedEvents: .init(
                     evaluatedConfig: aggregatedEvaluations,
                     invalidContext: report.invalidContextSubmissions
@@ -120,19 +124,32 @@ final class HTTPEventReporter: EventReporter {
 
         guard let status = (response as? HTTPURLResponse)?.statusCode else { return .failed }
 
-        if status.isFatalHTTPStatus {
+        switch status {
+        case 200 ..< 300:
+            return .succeeded
+        case Self.reportTooLargeStatus:
+            logger.warn("""
+            [EventReporter] The telemetry endpoint responded with status \(status). The events in \
+            this report were discarded.
+            """)
+            return .failed
+        case _ where status.isFatalHTTPStatus:
             logger.warn("""
             [EventReporter] Received a fatal status response (\(status)) from the telemetry endpoint. \
             No more telemetry data will be sent.
             """)
             return .failedFatally
+        default:
+            return .failed
         }
-
-        return (200 ..< 300).contains(status) ? .succeeded : .failed
     }
 }
 
 private struct TelemetryPayload: Encodable {
+    struct DiscreteEvents: Encodable {
+        var trackedEvents: [TrackedEventEntry]
+    }
+
     struct AggregatedEvents: Encodable {
         var evaluatedConfig: [AggregatedEvent<EvaluatedConfigEvent>]
         var invalidContext: [AggregatedEvent<InvalidContextSubmission>]
@@ -146,7 +163,7 @@ private struct TelemetryPayload: Encodable {
     var instanceID: String
     var metaContext: SDKMetaContext
     var context: ConfigDirectorContext?
-    var discreteEvents: [String: String] = [:]
+    var discreteEvents: DiscreteEvents
     var aggregatedEvents: AggregatedEvents
     var droppedEvents: DroppedEvents
 

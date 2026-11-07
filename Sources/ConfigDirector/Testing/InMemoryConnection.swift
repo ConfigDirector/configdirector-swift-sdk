@@ -5,7 +5,12 @@ package final class InMemoryConnection: Sendable {
 
     private let transport: InMemoryTransport
 
-    package init(values: [String: ServedValue], timeout: TimeInterval, logger: any ConfigDirectorLogger) {
+    package init(
+        values: [String: ServedValue],
+        timeout: TimeInterval,
+        logger: any ConfigDirectorLogger,
+        recordTrackedEvent: @escaping TrackedEventRecorder
+    ) {
         let transport = InMemoryTransport(configs: InMemoryTransport.encode(values))
         self.transport = transport
         do {
@@ -22,7 +27,9 @@ package final class InMemoryConnection: Sendable {
                 session: RecordingURLProtocol.makeSession(),
                 lifecycle: NoLifecycleObserver(),
                 telemetryOptions: TelemetryOptions(),
-                makeTelemetry: { _, _, _ in DiscardingTelemetry() },
+                makeTelemetry: { _, logger, _ in
+                    RecordingTelemetry(logger: logger, record: recordTrackedEvent)
+                },
                 makeTransport: { _, _, onConfigSet in
                     transport.attach(onConfigSet)
                     return transport
