@@ -14,6 +14,8 @@ final class StubURLProtocol: URLProtocol {
 
         /// When false the response is left open, the way a healthy server-sent events stream is.
         var endsStream = true
+
+        var isHeldUntilReleased = false
     }
 
     struct RecordedRequest: Sendable {
@@ -24,10 +26,21 @@ final class StubURLProtocol: URLProtocol {
         var cachePolicy: URLRequest.CachePolicy
     }
 
+    private enum Reply {
+        case answerNow(Response)
+        case heldUntilReleased
+    }
+
+    private struct HeldRequest {
+        var connection: StubURLProtocol
+        var response: Response
+    }
+
     private struct State {
         var queues: [String: [Response]] = [:]
         var recorded: [String: [RecordedRequest]] = [:]
         var cancelled: [String: Int] = [:]
+        var held: [String: [HeldRequest]] = [:]
         var urlsWithNoChangeSinceTimestamp: Set<String> = []
     }
 
@@ -54,6 +67,15 @@ final class StubURLProtocol: URLProtocol {
         state.withLock { $0.cancelled[url.absoluteString] ?? 0 }
     }
 
+    static func releaseHeldResponses(for url: URL) {
+        let held = state.withLock { state in
+            state.held.removeValue(forKey: url.absoluteString) ?? []
+        }
+        for request in held {
+            request.connection.answer(with: request.response)
+        }
+    }
+
     /// Sends `text` down every open connection to `url`.
     static func push(_ text: String, to url: URL) {
         for connection in live.withLock({ $0[url.absoluteString] ?? [] }) {
@@ -76,8 +98,15 @@ final class StubURLProtocol: URLProtocol {
     }
 
     override func startLoading() {
-        let response = Self.next(recording: request)
+        switch Self.reply(recording: self) {
+        case let .answerNow(response):
+            answer(with: response)
+        case .heldUntilReleased:
+            break
+        }
+    }
 
+    private func answer(with response: Response) {
         guard let url = request.url,
               let httpResponse = HTTPURLResponse(
                   url: url,
@@ -105,16 +134,20 @@ final class StubURLProtocol: URLProtocol {
 
     override func stopLoading() {
         let key = request.url?.absoluteString ?? ""
-        Self.state.withLock { $0.cancelled[key, default: 0] += 1 }
+        Self.state.withLock { state in
+            state.cancelled[key, default: 0] += 1
+            state.held[key]?.removeAll { $0.connection === self }
+        }
         Self.live.withLock { $0[key]?.removeAll { $0 === self } }
     }
 
     /// Takes the next scripted response, defaulting to one that stays open so a client that
     /// reconnects more often than the test scripted does not spin.
-    private static func next(recording request: URLRequest) -> Response {
+    private static func reply(recording connection: StubURLProtocol) -> Reply {
+        let request = connection.request
         let key = request.url?.absoluteString ?? ""
 
-        return state.withLock { state in
+        return state.withLock { state -> Reply in
             let recordedRequest = RecordedRequest(
                 method: request.httpMethod,
                 headers: request.allHTTPHeaderFields ?? [:],
@@ -126,15 +159,18 @@ final class StubURLProtocol: URLProtocol {
 
             let carriesATimestamp = recordedRequest.payload?.lastUpdateTimestamp != nil
             if carriesATimestamp, state.urlsWithNoChangeSinceTimestamp.contains(key) {
-                return .json("", statusCode: 204)
+                return .answerNow(.json("", statusCode: 204))
             }
 
             guard var queue = state.queues[key], !queue.isEmpty else {
-                return Response(endsStream: false)
+                return .answerNow(Response(endsStream: false))
             }
             let response = queue.removeFirst()
             state.queues[key] = queue
-            return response
+            guard response.isHeldUntilReleased else { return .answerNow(response) }
+
+            state.held[key, default: []].append(HeldRequest(connection: connection, response: response))
+            return .heldUntilReleased
         }
     }
 

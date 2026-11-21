@@ -54,6 +54,10 @@ final class TransportFixture: Sendable {
         StubURLProtocol.enqueue(responses, for: endpoint)
     }
 
+    func releaseHeldResponses() {
+        StubURLProtocol.releaseHeldResponses(for: endpoint)
+    }
+
     func waitForConfigSets(_ count: Int, timeout: TimeInterval = 2) async -> Bool {
         await waitUntil(timeout: timeout) { [self] in received.count >= count }
     }
@@ -113,6 +117,12 @@ extension StubURLProtocol.Response {
             headers: ["Content-Type": "application/json"],
             chunks: body.isEmpty ? [] : [body]
         )
+    }
+
+    var heldUntilReleased: Self {
+        var response = self
+        response.isHeldUntilReleased = true
+        return response
     }
 }
 

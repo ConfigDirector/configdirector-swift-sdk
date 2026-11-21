@@ -217,6 +217,64 @@ struct PollingTransportTests {
         #expect(fixture.recorded.count == 1, "polling started after the transport was disconnected")
     }
 
+    @Test func handsOverNothingFromAFirstFetchThatLandsAfterDisconnect() async throws {
+        let (fixture, transport) = makeTransport()
+        defer { transport.close() }
+        fixture.enqueue(
+            .json(configSetJSON(greeting: "late", timestamp: "2026-11-21T00:00:00Z")).heldUntilReleased,
+            .json(configSetJSON(greeting: "reconnected"))
+        )
+        let connecting = Task { try await transport.connect(context: ConfigDirectorContext(), timeout: 1) }
+        #expect(await fixture.waitForRequests(1))
+
+        transport.disconnect()
+        fixture.releaseHeldResponses()
+        try await connecting.value
+
+        #expect(fixture.received.isEmpty)
+
+        try await transport.connect(context: ConfigDirectorContext(), timeout: 1)
+
+        #expect(fixture.recorded.last?.payload?.lastUpdateTimestamp == nil)
+    }
+
+    @Test func handsOverNothingFromAFirstFetchThatLandsAfterClose() async throws {
+        let (fixture, transport) = makeTransport()
+        fixture.enqueue(.json(configSetJSON(greeting: "late")).heldUntilReleased)
+        let connecting = Task { try await transport.connect(context: ConfigDirectorContext(), timeout: 1) }
+        #expect(await fixture.waitForRequests(1))
+
+        transport.close()
+        fixture.releaseHeldResponses()
+        try await connecting.value
+
+        #expect(fixture.received.isEmpty)
+    }
+
+    @Test func pollsForTheLaterConnectAndIgnoresAnEarlierFirstFetchThatLandsLate() async throws {
+        let (fixture, transport) = makeTransport(pollingInterval: 0.3)
+        defer { transport.close() }
+        fixture.enqueue(
+            .json(configSetJSON(greeting: "for-a", timestamp: "2026-11-21T00:00:00Z")).heldUntilReleased,
+            .json(configSetJSON(greeting: "for-b", timestamp: "2026-11-21T00:00:01Z"))
+        )
+        let earlierConnect = Task {
+            try await transport.connect(context: ConfigDirectorContext(id: "user-a"), timeout: 1)
+        }
+        #expect(await fixture.waitForRequests(1))
+
+        try await transport.connect(context: ConfigDirectorContext(id: "user-b"), timeout: 1)
+        fixture.releaseHeldResponses()
+        try await earlierConnect.value
+
+        #expect(fixture.received.map { $0.configs["greeting"]?.value } == ["for-b"])
+
+        #expect(await fixture.waitForRequests(3))
+        let poll = try #require(fixture.recorded.dropFirst(2).first)
+        #expect(poll.payload?.givenContext.id == "user-b")
+        #expect(poll.payload?.lastUpdateTimestamp == "2026-11-21T00:00:01Z")
+    }
+
     @Test func disconnectingStopsPolling() async throws {
         let (fixture, transport) = makeTransport(pollingInterval: 0.05)
         defer { transport.close() }

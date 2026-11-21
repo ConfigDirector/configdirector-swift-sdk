@@ -7,6 +7,10 @@ final class PollingTransport: Transport {
         var lastUpdateTimestamp: String?
         var fatalError: ConfigDirectorError?
         var isClosed = false
+
+        func isCurrentConnection(_ generation: Int) -> Bool {
+            connectionGeneration == generation
+        }
     }
 
     private let options: TransportOptions
@@ -40,7 +44,7 @@ final class PollingTransport: Transport {
         defer { schedulePolling(context: context, timeout: timeout, generation: generation) }
 
         do {
-            try await fetch(context: context, timeout: timeout)
+            try await fetch(context: context, timeout: timeout, generation: generation)
         } catch let error where willRetryOnInterval {
             options.logger.warn(
                 "[PollingTransport] Error fetching config state, polling continues on the interval",
@@ -84,14 +88,14 @@ final class PollingTransport: Transport {
                 guard await (try? Task.sleep(seconds: pollingInterval)) != nil, let self else { return }
 
                 do {
-                    try await fetch(context: context, timeout: timeout)
+                    try await fetch(context: context, timeout: timeout, generation: generation)
                 } catch {
                     options.logger.warn("[PollingTransport] Error during polling", error: error)
                 }
             }
         }
         let pollingToCancel = state.withLock { state -> Task<Void, Never>? in
-            guard state.connectionGeneration == generation else { return polling }
+            guard state.isCurrentConnection(generation) else { return polling }
             let previous = state.polling
             state.polling = polling
             return previous
@@ -99,7 +103,7 @@ final class PollingTransport: Transport {
         pollingToCancel?.cancel()
     }
 
-    private func fetch(context: ConfigDirectorContext, timeout: TimeInterval) async throws {
+    private func fetch(context: ConfigDirectorContext, timeout: TimeInterval, generation: Int) async throws {
         let lastUpdateTimestamp = state.withLock { $0.lastUpdateTimestamp }
 
         var request = URLRequest(url: url, timeoutInterval: timeout)
@@ -135,7 +139,7 @@ final class PollingTransport: Transport {
 
         guard response.statusCode == 200 else { return }
 
-        try dispatch(data)
+        try dispatch(data, generation: generation)
     }
 
     private func throwOnErrorStatus(_ response: HTTPURLResponse, body: Data) throws {
@@ -171,7 +175,7 @@ final class PollingTransport: Transport {
         return text.prefix(maxBodyLengthInErrors) + "…"
     }
 
-    private func dispatch(_ data: Data) throws {
+    private func dispatch(_ data: Data, generation: Int) throws {
         let configSet: ConfigSet
         do {
             configSet = try JSONDecoder().decode(ConfigSet.self, from: data)
@@ -182,7 +186,13 @@ final class PollingTransport: Transport {
             )
         }
 
-        state.withLock { $0.lastUpdateTimestamp = configSet.timestamp }
+        let isCurrentConnection = state.withLock { state -> Bool in
+            guard state.isCurrentConnection(generation) else { return false }
+            state.lastUpdateTimestamp = configSet.timestamp
+            return true
+        }
+        guard isCurrentConnection else { return }
+
         onConfigSet(configSet)
     }
 }

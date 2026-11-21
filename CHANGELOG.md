@@ -8,6 +8,17 @@ version can be tagged. See [Releasing](CONTRIBUTING.md#releasing).
 
 ## [Unreleased]
 
+### Fixed
+
+- In polling mode, a response to `initialize`, `updateContext` or `resumeNetwork()` that arrives after
+  the app paused the network or closed the client is now ignored. Before, after a pause, by
+  `pauseNetwork()` or by the app going to the background, the client became ready and emitted `ready`
+  and `configsUpdated` while paused, and kept the late values on the device. Now it stays paused and
+  not ready: the call that was waiting for that response returns once its timeout runs out, with the
+  usual timeout warning, and the next `resumeNetwork()`, such as the app coming back to the
+  foreground, fetches the values again. After `close()`, a late response no longer changes what
+  `value(for:)` returns or what is kept on the device.
+
 ## [1.11.0] - 2026-11-06
 
 ### Added
