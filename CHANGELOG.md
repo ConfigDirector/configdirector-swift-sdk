@@ -8,6 +8,8 @@ version can be tagged. See [Releasing](CONTRIBUTING.md#releasing).
 
 ## [Unreleased]
 
+## [1.11.1] - 2026-11-23
+
 ### Fixed
 
 - In polling mode, a response to `initialize`, `updateContext` or `resumeNetwork()` that arrives after
