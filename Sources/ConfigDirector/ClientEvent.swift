@@ -27,7 +27,7 @@ public enum ClientEvent: Sendable {
     case cachedValuesLoaded
 
     /// A new context has taken effect. It is `nil` when there is none, including after a context with
-    /// an invalid context kind was ignored.
+    /// an invalid context kind, or over a size limit, was ignored.
     case contextUpdated(ConfigDirectorContext?)
 }
 

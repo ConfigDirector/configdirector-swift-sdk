@@ -133,4 +133,52 @@ struct InvalidContextSubmissionTelemetryTests {
         await settle(0.2)
         #expect(reportedInvalidContextSubmissionCount(fixture) == 1)
     }
+
+    @Test func reportsAContextOverASizeLimitByItsReasonAloneEvenWithoutEvaluations() async throws {
+        let fixture = ClientFixture()
+        fixture.serveStream(servedConfigSet)
+        let client = try fixture.makeClient()
+        defer { client.close() }
+        let id = String(repeating: "i", count: 257)
+
+        await client.initialize(context: ConfigDirectorContext(
+            id: id,
+            name: "Kitchen tablet",
+            traits: ["model": "t-1000"]
+        ))
+
+        #expect(await waitUntil { reportedInvalidContextSubmissionCount(fixture) == 1 })
+        let report = try #require(fixture.telemetryReports()
+            .first { !$0.aggregatedEvents.invalidContext.isEmpty })
+        let submission = try #require(report.aggregatedEvents.invalidContext.first)
+        #expect(report.aggregatedEvents.invalidContext.count == 1)
+        #expect(report.aggregatedEvents.evaluatedConfig.isEmpty)
+        #expect(submission.count == 1)
+        #expect(submission.event.reason == "identifier-too-long")
+        #expect(submission.event.kindSample == nil)
+        #expect(submission.startTime <= submission.endTime)
+
+        let bodies = fixture.telemetryRequests.compactMap(\.body)
+        #expect(bodies.contains { $0.contains(id) } == false)
+        #expect(bodies.contains { $0.contains("Kitchen tablet") } == false)
+        #expect(bodies.contains { $0.contains("t-1000") } == false)
+    }
+
+    @Test func reportsTwoContextsOverTheIDLimitAsOneSubmissionWhenTheFirstConnectionFails() async throws {
+        let fixture = ClientFixture()
+        fixture.serveStream(servedConfigSet)
+        fixture.rejectStream(statusCode: 401)
+        fixture.serveStream(servedConfigSet)
+        let client = try fixture.makeClient(telemetryFlushInterval: 60)
+        defer { client.close() }
+        await client.initialize(context: ConfigDirectorContext(id: "42"))
+
+        await client.updateContext(ConfigDirectorContext(id: String(repeating: "i", count: 257)))
+        await client.updateContext(ConfigDirectorContext(id: String(repeating: "j", count: 257)))
+
+        #expect(await waitUntil { reportedInvalidContextSubmissionCount(fixture) == 2 })
+        let submissions = fixture.telemetryReports().flatMap(\.aggregatedEvents.invalidContext)
+        #expect(submissions.map(\.event.reason) == ["identifier-too-long"])
+        #expect(submissions.map(\.count) == [2])
+    }
 }

@@ -266,6 +266,13 @@ final class ConfigStore: Sendable {
             """)
             telemetry.recordInvalidContextSubmission(contextKindSample: contextKindSample)
             return nil
+        case let .ignoredOverAContextSizeLimit(sizeLimit):
+            logger.error("""
+            Ignored the context supplied for \(reason) because \(sizeLimit.explanation); continuing as if \
+            no context was supplied.
+            """)
+            telemetry.recordInvalidContextSubmission(contextSizeLimit: sizeLimit)
+            return nil
         }
     }
 
@@ -367,4 +374,14 @@ private struct MergedConfigSet {
     var isDelta: Bool
     var removedKeys: [String]
     var configs: [String: ConfigState]
+}
+
+private extension ContextSizeLimit {
+    var explanation: String {
+        switch self {
+        case .identifier: "its id is longer than 256 characters"
+        case .name: "its name is longer than 256 characters"
+        case .traits: "its traits are over 64 KB of JSON"
+        }
+    }
 }

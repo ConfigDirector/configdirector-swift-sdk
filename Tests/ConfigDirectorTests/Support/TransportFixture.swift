@@ -105,8 +105,16 @@ extension StubURLProtocol.RecordedRequest {
     }
 
     var givenContextFieldNames: Set<String>? {
+        givenContextFields.map { Set($0.keys) }
+    }
+
+    var givenContextTraits: [String: String]? {
+        givenContextFields?["traits"] as? [String: String]
+    }
+
+    private var givenContextFields: [String: Any]? {
         let fields = body.flatMap { try? JSONSerialization.jsonObject(with: Data($0.utf8)) as? [String: Any] }
-        return (fields?["givenContext"] as? [String: Any]).map { Set($0.keys) }
+        return fields?["givenContext"] as? [String: Any]
     }
 }
 

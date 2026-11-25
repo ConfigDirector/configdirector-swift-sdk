@@ -1,18 +1,29 @@
+import Foundation
+
+enum ContextSizeLimit: Sendable {
+    case identifier
+    case name
+    case traits
+}
+
 enum ContextAdmission: Equatable {
     case admitted(ConfigDirectorContext?)
     case ignoredForAnInvalidContextKind(contextKindSample: String)
+    case ignoredOverAContextSizeLimit(ContextSizeLimit)
 
     private static let contextKindMaximumCharacters = 64
     private static let contextKindSampleMaximumCharacters = 128
+    private static let identifierMaximumCharacters = 256
+    private static let nameMaximumCharacters = 256
+    private static let traitsMaximumJSONBytes = 65536
 
     init(of context: ConfigDirectorContext?) {
-        switch context?.kind {
-        case .none:
-            self = .admitted(context)
-        case let .some(contextKind) where Self.isValid(contextKind):
-            self = .admitted(context)
-        case let .some(contextKind):
+        if let contextKind = context?.kind, !Self.isValid(contextKind) {
             self = .ignoredForAnInvalidContextKind(contextKindSample: Self.sample(of: contextKind))
+        } else if let sizeLimit = context.flatMap(Self.firstSizeLimitExceeded) {
+            self = .ignoredOverAContextSizeLimit(sizeLimit)
+        } else {
+            self = .admitted(context)
         }
     }
 
@@ -31,5 +42,32 @@ enum ContextAdmission: Equatable {
     private static func sample(of contextKind: String) -> String {
         let firstCharacters = contextKind.unicodeScalars.prefix(contextKindSampleMaximumCharacters)
         return String(String.UnicodeScalarView(firstCharacters))
+    }
+
+    private static func firstSizeLimitExceeded(by context: ConfigDirectorContext) -> ContextSizeLimit? {
+        if hasMoreCharacters(than: identifierMaximumCharacters, in: context.id) {
+            return .identifier
+        }
+        if hasMoreCharacters(than: nameMaximumCharacters, in: context.name) {
+            return .name
+        }
+        if hasMoreJSONBytes(than: traitsMaximumJSONBytes, in: context.traits) {
+            return .traits
+        }
+        return nil
+    }
+
+    private static func hasMoreCharacters(than maximumCharacters: Int, in text: String?) -> Bool {
+        (text?.unicodeScalars.count ?? 0) > maximumCharacters
+    }
+
+    private static func hasMoreJSONBytes(
+        than maximumBytes: Int,
+        in traits: [String: ConfigDirectorContext.TraitValue]?
+    ) -> Bool {
+        guard let traits, let json = try? JSONEncoder.forTransportPayloads().encode(traits) else {
+            return false
+        }
+        return json.count > maximumBytes
     }
 }

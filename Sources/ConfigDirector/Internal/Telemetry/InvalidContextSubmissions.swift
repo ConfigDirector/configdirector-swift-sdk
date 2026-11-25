@@ -4,6 +4,7 @@ final class InvalidContextSubmissions: Sendable {
     private struct State {
         var countsByContextKindSample: [String: Int] = [:]
         var countBeyondSampleLimit = 0
+        var countsByContextSizeLimit: [ContextSizeLimit: Int] = [:]
         var startTime: Date?
     }
 
@@ -27,30 +28,37 @@ final class InvalidContextSubmissions: Sendable {
         }
     }
 
+    func record(contextSizeLimit: ContextSizeLimit) {
+        state.withLock { state in
+            if state.startTime == nil {
+                state.startTime = Date()
+            }
+
+            state.countsByContextSizeLimit[contextSizeLimit, default: 0] += 1
+        }
+    }
+
     func takeAggregated() -> [AggregatedEvent<InvalidContextSubmission>] {
         let endTime = Date()
 
         let collected = state.exchange(\.self, with: State())
         let startTime = collected.startTime ?? endTime
 
+        let entry = { (count: Int, event: InvalidContextSubmission) in
+            AggregatedEvent(startTime: startTime, endTime: endTime, count: count, event: event)
+        }
+
         let sampled = collected.countsByContextKindSample.map { contextKindSample, count in
-            AggregatedEvent(
-                startTime: startTime,
-                endTime: endTime,
-                count: count,
-                event: InvalidContextSubmission.sampled(contextKindSample: contextKindSample)
-            )
+            entry(count, .sampled(contextKindSample: contextKindSample))
         }
         let beyondSampleLimit = collected.countBeyondSampleLimit > 0
-            ? [AggregatedEvent(
-                startTime: startTime,
-                endTime: endTime,
-                count: collected.countBeyondSampleLimit,
-                event: InvalidContextSubmission.beyondContextKindSampleLimit
-            )]
+            ? [entry(collected.countBeyondSampleLimit, .beyondContextKindSampleLimit)]
             : []
+        let overContextSizeLimits = collected.countsByContextSizeLimit.map { sizeLimit, count in
+            entry(count, .overContextSizeLimit(sizeLimit))
+        }
 
-        return sampled + beyondSampleLimit
+        return sampled + beyondSampleLimit + overContextSizeLimits
     }
 
     func clear() {

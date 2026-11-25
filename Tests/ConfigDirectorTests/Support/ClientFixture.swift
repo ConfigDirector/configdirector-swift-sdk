@@ -196,6 +196,20 @@ let contextWithAnInvalidContextKind = ConfigDirectorContext(
     traits: ["model": "t-1000"]
 )
 
+extension StreamReader<ClientEvent> {
+    func contextOfNextContextUpdate() async -> ConfigDirectorContext?? {
+        let event = await next {
+            if case .contextUpdated = $0 {
+                true
+            } else {
+                false
+            }
+        }
+        guard case let .contextUpdated(context) = event else { return nil }
+        return .some(context)
+    }
+}
+
 /// A config set carrying only the configs that changed.
 func deltaConfigSet(_ configs: [ServedConfig]) -> String {
     configSetJSON(configs, kind: "delta")

@@ -21,6 +21,8 @@ protocol TelemetryClient: Sendable {
 
     func recordInvalidContextSubmission(contextKindSample: String)
 
+    func recordInvalidContextSubmission(contextSizeLimit: ContextSizeLimit)
+
     func trackedEvent(_ admission: TrackedEventAdmission, context: ConfigDirectorContext?)
 
     /// Reports the events collected so far against the previous context, and attributes the ones
@@ -81,6 +83,11 @@ final class TelemetryEventCollector: TelemetryClient {
     func recordInvalidContextSubmission(contextKindSample: String) {
         guard state.withLock({ $0.isCollecting }) else { return }
         invalidContextSubmissions.record(contextKindSample: contextKindSample)
+    }
+
+    func recordInvalidContextSubmission(contextSizeLimit: ContextSizeLimit) {
+        guard state.withLock({ $0.isCollecting }) else { return }
+        invalidContextSubmissions.record(contextSizeLimit: contextSizeLimit)
     }
 
     func trackedEvent(_ admission: TrackedEventAdmission, context _: ConfigDirectorContext?) {

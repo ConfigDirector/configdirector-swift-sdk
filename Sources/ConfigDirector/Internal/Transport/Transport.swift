@@ -37,7 +37,7 @@ struct TransportOptions: Sendable {
         for context: ConfigDirectorContext,
         lastUpdateTimestamp: String? = nil
     ) throws -> Data {
-        try JSONEncoder().encode(TransportPayload(
+        try JSONEncoder.forTransportPayloads().encode(TransportPayload(
             givenContext: context,
             metaContext: metaContext,
             clientSDKKey: clientSDKKey,
@@ -60,6 +60,14 @@ private struct TransportPayload: Encodable {
         case givenContext, metaContext, ephemeral, lastUpdateTimestamp
         case clientSDKKey = "clientSdkKey"
         case instanceID = "instanceId"
+    }
+}
+
+extension JSONEncoder {
+    static func forTransportPayloads() -> JSONEncoder {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .withoutEscapingSlashes
+        return encoder
     }
 }
 

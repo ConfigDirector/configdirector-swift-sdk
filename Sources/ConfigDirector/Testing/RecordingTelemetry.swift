@@ -26,6 +26,8 @@ struct RecordingTelemetry: TelemetryClient {
 
     func recordInvalidContextSubmission(contextKindSample _: String) {}
 
+    func recordInvalidContextSubmission(contextSizeLimit _: ContextSizeLimit) {}
+
     func updateContext(_: ConfigDirectorContext?) {}
 
     func flush() async {}

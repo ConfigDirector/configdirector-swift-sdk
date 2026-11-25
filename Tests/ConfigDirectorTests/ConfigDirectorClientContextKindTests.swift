@@ -4,20 +4,6 @@ import Testing
 
 private let userContext = ConfigDirectorContext(id: "user-123")
 
-private extension StreamReader<ClientEvent> {
-    func contextOfNextContextUpdate() async -> ConfigDirectorContext?? {
-        let event = await next {
-            if case .contextUpdated = $0 {
-                true
-            } else {
-                false
-            }
-        }
-        guard case let .contextUpdated(context) = event else { return nil }
-        return .some(context)
-    }
-}
-
 struct ConfigDirectorClientContextKindTests {
     @Test func streamingInitializationIgnoresAContextWithAnInvalidContextKind() async throws {
         let logger = RecordingLogger()

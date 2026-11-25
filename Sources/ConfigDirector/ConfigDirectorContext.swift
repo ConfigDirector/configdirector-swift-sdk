@@ -11,6 +11,11 @@ public struct ConfigDirectorContext: Sendable, Equatable {
     /// an identifier from an ID the SDK stores for the app install, so it stays the same until the
     /// app is uninstalled. This value segments users in percentage rollouts, so changing it can move
     /// a user into a different percentile.
+    ///
+    /// An identifier has at most 256 characters, counted as Unicode code points. A context with a
+    /// longer one is ignored as a whole when it is passed to
+    /// ``ConfigDirectorClient/initialize(context:)`` or ``ConfigDirectorClient/updateContext(_:)``:
+    /// the client logs an error and evaluates configs as if no context was given.
     public var id: String?
 
     /// The context kind, such as `user`, `device` or `organization`, exactly as it was given, or `nil`
@@ -25,6 +30,9 @@ public struct ConfigDirectorContext: Sendable, Equatable {
 
     /// The user's display name. It is shown in the ConfigDirector dashboard and may be used by
     /// targeting rules.
+    ///
+    /// A name has at most 256 characters, counted as Unicode code points. A context with a longer one
+    /// is ignored as a whole, as a context with a longer ``id`` is.
     public var name: String?
 
     /// Arbitrary traits for the current user. They are shown in the ConfigDirector dashboard and may
@@ -33,6 +41,9 @@ public struct ConfigDirectorContext: Sendable, Equatable {
     /// ```swift
     /// ConfigDirectorContext(id: "user-123", traits: ["plan": "pro", "seats": 12, "beta": true])
     /// ```
+    ///
+    /// Traits take at most 64 KB once written as JSON, 65,536 bytes in UTF-8. A context with larger
+    /// traits is ignored as a whole, as a context with a longer ``id`` is.
     public var traits: [String: TraitValue]?
 
     /// Whether to treat this context as anonymous during evaluation. When `true`, the values are

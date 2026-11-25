@@ -135,7 +135,8 @@ public final class ConfigDirectorClient: Sendable {
     }
 
     /// The context the client is currently evaluating configs against, or `nil` when there is none,
-    /// as after a context with an invalid ``ConfigDirectorContext/kind`` was ignored.
+    /// as after a context with an invalid ``ConfigDirectorContext/kind``, or over a size limit, was
+    /// ignored.
     ///
     /// This does not change the moment ``updateContext(_:)`` is called: configs are evaluated against
     /// the previous context until the underlying connection succeeds or times out.
@@ -203,8 +204,10 @@ public final class ConfigDirectorClient: Sendable {
     /// connect. If it fails with a persistent error, such as an invalid SDK key, the client stops
     /// trying and logs an error.
     ///
-    /// A context with an invalid ``ConfigDirectorContext/kind`` is ignored: the client logs an error
-    /// and connects as if no context was given.
+    /// A context with an invalid ``ConfigDirectorContext/kind``, or with an
+    /// ``ConfigDirectorContext/id``, ``ConfigDirectorContext/name`` or ``ConfigDirectorContext/traits``
+    /// over its size limit, is ignored: the client logs an error and connects as if no context was
+    /// given.
     ///
     /// In ``ConnectionMode/offline`` mode nothing is connected: the client is ready, serving
     /// ``ConnectionOptions/values``, before this returns.
@@ -217,8 +220,10 @@ public final class ConfigDirectorClient: Sendable {
 
     /// Updates the user's context and re-evaluates every config against it.
     ///
-    /// A context with an invalid ``ConfigDirectorContext/kind`` is ignored: the client logs an error
-    /// and stops using the previous context, re-evaluating every config as if no context was given.
+    /// A context with an invalid ``ConfigDirectorContext/kind``, or with an
+    /// ``ConfigDirectorContext/id``, ``ConfigDirectorContext/name`` or ``ConfigDirectorContext/traits``
+    /// over its size limit, is ignored: the client logs an error and stops using the previous context,
+    /// re-evaluating every config as if no context was given.
     ///
     /// In ``ConnectionMode/offline`` mode the new context takes effect at once and no value changes.
     public func updateContext(_ context: ConfigDirectorContext) async {

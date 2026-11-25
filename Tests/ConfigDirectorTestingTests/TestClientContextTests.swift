@@ -58,6 +58,18 @@ struct TestClientContextTests {
         #expect(fixture.logger.errors.count == 1)
     }
 
+    @Test func initializeWithAnIDOver256CharactersRecordsAnEmptyContext() async {
+        let testClient = fixture.makeTestClient()
+        defer { testClient.client.close() }
+        let id = String(repeating: "i", count: 257)
+
+        await testClient.client.initialize(context: ConfigDirectorContext(id: id))
+
+        #expect(testClient.contextUpdates == [ConfigDirectorContext()])
+        #expect(testClient.client.context == nil)
+        #expect(fixture.logger.errors.count == 1)
+    }
+
     @Test func s26AHeldUpdateContextStaysPendingUntilCompleted() async throws {
         let testClient = fixture.makeTestClient(values: ["flag": true])
         defer { testClient.client.close() }

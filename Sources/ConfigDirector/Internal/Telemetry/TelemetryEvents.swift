@@ -113,6 +113,7 @@ extension EvaluatedConfigEvent: Encodable {
 enum InvalidContextSubmission: Hashable, Sendable {
     case sampled(contextKindSample: String)
     case beyondContextKindSampleLimit
+    case overContextSizeLimit(ContextSizeLimit)
 }
 
 extension InvalidContextSubmission: Encodable {
@@ -125,12 +126,22 @@ extension InvalidContextSubmission: Encodable {
 
     func encode(to encoder: any Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(Self.invalidContextKindReason, forKey: .reason)
         switch self {
         case let .sampled(contextKindSample):
+            try container.encode(Self.invalidContextKindReason, forKey: .reason)
             try container.encode(contextKindSample, forKey: .contextKindSample)
         case .beyondContextKindSampleLimit:
-            break
+            try container.encode(Self.invalidContextKindReason, forKey: .reason)
+        case let .overContextSizeLimit(sizeLimit):
+            try container.encode(Self.reason(over: sizeLimit), forKey: .reason)
+        }
+    }
+
+    private static func reason(over sizeLimit: ContextSizeLimit) -> String {
+        switch sizeLimit {
+        case .identifier: "identifier-too-long"
+        case .name: "name-too-long"
+        case .traits: "traits-too-large"
         }
     }
 }

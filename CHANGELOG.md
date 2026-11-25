@@ -8,6 +8,22 @@ version can be tagged. See [Releasing](CONTRIBUTING.md#releasing).
 
 ## [Unreleased]
 
+### Changed
+
+- `initialize(context:)` and `updateContext(_:)` now ignore a context over the context size limits
+  instead of sending it: an `id` or a `name` longer than 256 characters, counted as Unicode code
+  points, or `traits` over 64 KB once written as JSON (65,536 bytes in UTF-8). Such a context is
+  ignored as a context with an invalid context kind is: the call completes and the client connects as
+  if no context was given, so `client.context`, `ClientEvent.contextUpdated` and
+  `ConfigEvaluation.context` are `nil` afterwards and `resumeNetwork()` reconnects without a context.
+  The SDK logs one error that names the limit, and telemetry counts each ignored context by the limit
+  it is over, never its id, name or traits. A context with an invalid context kind is reported for its
+  context kind, whatever its size. ConfigDirector already ignores such a context when it arrives, so
+  the values served do not change; the client now stops sending it.
+- The test client (`ConfigDirectorTesting`) records an empty context in `contextUpdates` for an
+  `initialize` or `updateContext` whose context is over the context size limits, since the client
+  connects without it.
+
 ## [1.11.1] - 2026-11-23
 
 ### Fixed
