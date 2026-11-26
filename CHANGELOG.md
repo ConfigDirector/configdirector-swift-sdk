@@ -8,6 +8,8 @@ version can be tagged. See [Releasing](CONTRIBUTING.md#releasing).
 
 ## [Unreleased]
 
+## [1.12.0] - 2026-11-25
+
 ### Changed
 
 - `initialize(context:)` and `updateContext(_:)` now ignore a context over the context size limits
