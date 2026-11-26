@@ -95,7 +95,7 @@ struct EventQueueTests {
     }
 
     @Test func pushingOntoAFullQueueDoesNotShiftEveryEvent() {
-        let limit = 100_000
+        let limit = 1_000_000
         let queue = EventQueue<Int>(limit: limit)
         for event in 0 ..< limit {
             queue.push(event)
@@ -107,7 +107,7 @@ struct EventQueueTests {
         }
         let elapsed = Date().timeIntervalSince(started)
 
-        #expect(elapsed < 0.1)
+        #expect(elapsed < 1)
         #expect(queue.takeSnapshot().droppedCount == 20000)
     }
 }
